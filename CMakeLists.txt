@@ -18,12 +18,12 @@ set(CMAKE_SHARED_LIBRARY_C_FLAGS "-Wl,--no-undefined")
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parser.y
   COMMAND /usr/bin/lua tr.lua  ${PAR_SOURCE_DIR}/parser.in > ${PAR_SOURCE_DIR}/parser.y
-  MAIN_DEPENDENCY parser.in tr.lua
+  DEPENDS parser.in tr.lua generator.lua
 )
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parser.lua
   COMMAND /usr/bin/lua ta.lua  ${PAR_SOURCE_DIR}/parser.in > ${PAR_SOURCE_DIR}/parser.lua
-  MAIN_DEPENDENCY parser.in ta.lua
+  DEPENDS parser.in ta.lua generator.lua
 )
 
 

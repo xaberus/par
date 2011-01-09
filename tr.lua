@@ -1,5 +1,5 @@
-require "lpeg"
 require "dump"
+require "generator"
 
 local code = io.input(arg[1]):read("*a")
 
@@ -8,66 +8,7 @@ local code = io.input(arg[1]):read("*a")
 
 local out = true
 
-local ws = lpeg.S(" \n\t")^0
-local ud = lpeg.S "_"
-local up = lpeg.R("AZ") + ud
-local lo = lpeg.R("az") + ud
-local digit = lpeg.R("19")
-local colon = lpeg.S(":")
-local semicolon = lpeg.S(";")
-local pipe = lpeg.S("|")
-
-local exp = lpeg.V"exp"
-local token = lpeg.V"token"
-local iden = lpeg.V"iden"
-local rule = lpeg.V"rule"
-local rules = lpeg.V"rules"
-
-local tokens = {}
-local idens = {}
-
-local tagmeta = {
-  __tostring = function(s,k)
-    return s.value
-  end
-}
-
-local G = lpeg.P{
-  exp,
-  exp = lpeg.Ct(iden * colon * rules * semicolon),
-  rules = lpeg.Ct(rule * ( pipe * rule)^0),
-  rule = ws * lpeg.Ct(lpeg.Cg( (token + iden))^1) * ws,
-  token = ws * 
-    ((up * (up+digit)^1) / function(v)
-        local t = tokens[v]
-        if not t then
-          local r = {tag = "token", value = v}
-          setmetatable(r, tagmeta)
-          tokens[v] = r;
-          return r
-        else
-          return t
-        end
-      end)
-    * ws,
-  iden = ws *
-    ((lo * (lo+digit)^1) / function(v)
-        local t = idens[v]
-        if not t then
-          local r = {tag = "iden", value = v}
-          setmetatable(r, tagmeta)
-          idens[v] = r;
-          return r
-        else
-          return t
-        end
-      end)
-    * ws,
-}
-
-G=G^1
-
-local ret = {lpeg.match(G, code)}
+local ret, tokens, idens = generator.parse(code)
 
 if out then
 print[[
