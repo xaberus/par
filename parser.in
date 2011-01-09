@@ -472,7 +472,7 @@ block_item
 expression_statement
 	: SEMICOLON
 	| expression SEMICOLON
-  | L_PAREN compound_statement R_PAREN
+  | L_PAREN compound_statement R_PAREN SEMICOLON
 	;
 
 
