@@ -24,6 +24,8 @@ local rules = lpeg.V"rules"
 local gram = lpeg.V"gram"
 local comment = lpeg.V"comment"
 
+local space = lpeg.V"space"
+
 local tokens = {}
 local idens = {}
 
@@ -41,13 +43,15 @@ local ci = lpeg.R"az" + lpeg.R"AZ" +
 local G = lpeg.P{
   gram,
 
-  gram = (exp + comment + ws)^1,
+  gram = (exp)^1,
   comment = cs * ( ci^1 - ce )^0 * ce,
 
-  exp = lpeg.Ct(iden * colon * rules * semicolon),
-  rules = lpeg.Ct(rule * ( pipe * rule)^0),
-  rule = ws^0 * lpeg.Ct(lpeg.Cg( (token + iden))^1) * ws^0,
-  token = ws^0 * 
+  space = (ws + comment)^0,
+
+  exp = lpeg.Ct(iden * colon * rules * semicolon) * space,
+  rules = lpeg.Ct(rule * ( pipe * rule)^0) * space,
+  rule = lpeg.Ct(lpeg.Cg( (token + iden))^1) * space,
+  token = space * 
     ((up * (up+digit)^1) / function(v)
         local t = tokens[v]
         if not t then
@@ -59,8 +63,8 @@ local G = lpeg.P{
           return t
         end
       end)
-    * ws^0,
-  iden = ws^0 *
+    * space,
+  iden = space *
     ((lo * (lo+digit)^1) / function(v)
         local t = idens[v]
         if not t then
@@ -72,7 +76,7 @@ local G = lpeg.P{
           return t
         end
       end)
-    * ws^0,
+    * space,
 }
 
 function parse(src)
