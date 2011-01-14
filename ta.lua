@@ -6,7 +6,14 @@ local code = io.input(arg[1]):read("*a")
 --code = [[abc : A1; ]]
 --print(code)
 
-local out = true
+local out = 
+--[[
+false
+--]] true
+
+if arg[2] and arg[2] == "tmpl" then
+	out = false
+end
 
 local ret = generator.parse(code)
 
@@ -36,153 +43,227 @@ local tabmut = {
 }
 
 --dump(ret,nil,nil,true)
+if out then
+  local tmpls = [[
+  function %s(tree)
+  ]]
 
-local tmpls = [[
-function %s(tree)
-]]
+  local tmplif = [[
+    if tree._variant == %d then]]
 
-local tmplif = [[
-  if tree._variant == %d then]]
+  local tmplelif = [[
+    elseif tree._variant == %d then]]
 
-local tmplelif = [[
-  elseif tree._variant == %d then]]
-
-local tmplfi = [[
-  else
-    error("not reached")
-  end
-]]
-
-local tmple = [[
-end
-]]
-
-local tmplcall = [[
-    local var%d = %s(tree.%s)]]
-
-local tmpltfn = [[
-    write(tree["%s"].value) -- %d]]
-
-print([[
-require('dump')
-
-local dump = dump
-local dofile = dofile
-local error = error
-local type = type
-local string = string
-local ipairs = ipairs
-local pairs = pairs
-
-local write = function(...)
-  io.stdout:write(unpack{...}, " ")
-end
-
-local print = function(...)
-  io.stdout:write(string.format(unpack{...}))
-end
-
-module(...)
-
-function declaration_handler(tree, variant, typedefs)
-  local function decide_typedef(tree)
-    local function deep_lookup(tree, key)
-      for k,v in pairs(tree) do
-        if k == "declaration_specifiers" then
-          if deep_lookup(v, key) then return true end
-        elseif k == "storage_class_specifier" then
-          if deep_lookup(v, key) then return true end
-        elseif k == key then 
-          --dump(v,nil,nil,true)
-          return true
-        end
-      end
-      return false
-    end
-    local function get_name(tree)
-      for k,v in pairs(tree) do
-        --print("%s/%s\n", tree.tag, k)
-        local r = nil
-        if k == "init_declarator_list" then
-          r = get_name(v)
-        elseif k == "init_declarator" then
-          r = get_name(v)
-        elseif k == "declarator" then
-          r = get_name(v)
-        elseif k == "direct_declarator" then
-          r = get_name(v)
-        elseif k == "identifier" then
-          --dump(v,nil,nil,true)
-          r = v
-        end
-        
-        if r then return r end
-      end
-      return nil
-    end
-    
-    if deep_lookup(tree, "typedef") then
-      --dump(tree)
-      local r = get_name(tree)
-      --dump(r)
-      return r.value
-    end
-  end
-
-  if variant == 1 then
-    --dump(tree)
-  elseif variant == 2 then
-    local r = decide_typedef(tree)
-    --dump(tree)
-    if r then
-      typedefs[r] = tree
-      --dump(typedefs, 0, 0)
-    end
-  else
-    error("not reached")
-  end
-end
-
---dofile("parser.inc.lua")
-
-]])
-    
-function special_handler(i, v, variant, rule)
-
-end
-    
-for i,v in ipairs(ret) do
-  setmetatable(v,tabmet)
-  print(string.format("-- %s", v.res))
-  print(string.format(tmpls, v.res))
-  for j, rule in ipairs(v.rules) do
-    setmetatable(rule,tabmut)
-
-    print(string.format("--   %s %s",j==1 and ":" or "|", tostring(rule)))
-
-    if j == 1 then
-      print(string.format(tmplif, j))
+  local tmplfi = [[
     else
-      print(string.format(tmplelif, j))
+      error("not reached")
     end
+  ]]
 
-    for k, v in ipairs(rule) do
-      if v.tag == "iden" then
-        print(string.format(tmplcall, k, v.value, v.value))
-      elseif v.tag == "token" then
-        print(string.format(tmpltfn, string.lower(v.value), k))
-      end
-    end
-    
-    special_handler(i, v, j, rule)
+  local tmple = [[
+  end
+  ]]
+
+  local tmplcall = [[
+      local v%d = %s(tree.%s, v)]]
+  local tmpltfn = [[
+      local v%d = tree["%s"].value ]]
+
+  print([[
+  require('dump')
+
+  local dump = dump
+  local dofile = dofile
+  local error = error
+  local type = type
+  local string = string
+  local ipairs = ipairs
+  local pairs = pairs
+  local io = io
+  local table = table
+  local setmetatable = setmetatable
+  local getmetatable = getmetatable
+  local assert = assert
+  local tostring = tostring
+  local tonumber = tonumber
+
+  local write = function(...)
+    io.stdout:write(unpack{...}, " ")
   end
 
-  print(string.format(tmplfi))
+  local print = print
+  module("parser")
+
+  ]])
+
+  print(io.input("handlers.inc.lua"):read("*a"))
+
+  --print("dofile('handlers.inc.lua')")
+  print("dofile('tmpl.inc.lua')")
+
+
   
-  print("--   ;\n")
-  print(string.format(tmple))
+  for i,v in ipairs(ret) do
+    setmetatable(v,tabmet)
+    --print(string.format("-- %s", v.res))
+    print(string.format(tmpls, v.res))
+    for j, rule in ipairs(v.rules) do
+      setmetatable(rule,tabmut)
+
+      --print(string.format("--   %s %s",j==1 and ":" or "|", tostring(rule)))
+      if j == 1 then
+        print(string.format(tmplif, j))
+      else
+        print(string.format(tmplelif, j))
+      end
+      
+      --print(string.format([[      print("in %s %d ( %s)")]], v.res, j, tostring(rule)))
+
+      --local tmpl = template[v.res][j]
+
+      for k, v in ipairs(rule) do
+        if v.tag == "iden" then
+          print(string.format(tmplcall, k, v.value, v.value))
+        elseif v.tag == "token" then
+          print(string.format(tmpltfn, k, string.lower(v.value), string.lower(v.value), k))
+        end
+      end
+
+      --print(string.format(template[v.res][j].text))
+      
+      print(string.format([[      return %s_%d(%s)]], v.res, j,
+        (function(rule)
+          local args = ""
+          local first = true
+          for k, v in ipairs(rule) do
+            local p = false
+            if v.tag == "iden" then
+              p = true
+            elseif v.tag == "token" then
+              if v.value == "IDENTIFIER" then
+                p = true
+              elseif v.value == "TYPE_NAME" then
+                p = true
+              elseif v.value == "STRING_CONSTANT" then
+                p = true
+              elseif v.value == "CHAR_CONSTANT" then
+                p = true
+              elseif v.value == "OCT_INT_CONSTANT" then
+                p = true
+              elseif v.value == "DEC_INT_CONSTANT" then
+                p = true
+              elseif v.value == "HEX_INT_CONSTANT" then
+                p = true
+              elseif v.value == "FLOAT_CONSTANT" then
+                p = true
+              end
+            end
+            
+            if p then
+              if not first then
+                args = args .. ", "
+              end
+              first = false
+              args = args .. string.format("v%d", k)
+            end
+          end
+          return args
+        end)(rule)))
+    end
+
+    print(string.format(tmplfi))
+
+    print("--   ;\n")
+    print(string.format(tmple))
+  end
 end
 
+if not out then
+  do
+    local fp = io.open("tmpl.inc.lua", "w")
+    local write = function(fp, ...) fp:write(string.format(unpack{...}))end
+
+    --[[
+    write(fp, "template = {\n")
+    for i,v in ipairs(ret) do
+      setmetatable(v,tabmet)
+      write(fp, "  ['%s'] = {\n", v.res)
+      for j, rule in ipairs(v.rules) do
+        setmetatable(rule,tabmut)
+
+        write(fp, "    [%d] = { ", j)
+
+        write(fp, "--   %s %s\n",j==1 and ":" or "|", tostring(rule))
+
+        write(fp, "      text =\n"\n",\n", j)
+
+        write(fp, "    },\n")
+      end
+
+      write(fp, "--   ;\n")
+      write(fp, "  },")
+    end
+    ]]
+
+    for i,v in ipairs(ret) do
+      setmetatable(v,tabmet)
+      write(fp, "-- %s\n\n", v.res)
+      for j, rule in ipairs(v.rules) do
+        setmetatable(rule,tabmut)
+
+        write(fp, "function %s_%d(%s)\n", v.res, j,
+          (function(rule)
+            local args = ""
+            local first = true
+            for k, v in ipairs(rule) do
+              if v.tag == "iden" then
+                if not first then
+                  args = args .. ", "
+                end
+                first = false
+                args = args .. v.value
+              elseif v.tag == "token" then
+                if v.value == "IDENTIFIER" then
+                  if not first then
+                    args = args .. ", "
+                  end
+                  first = false
+                  args = args .. "identifier"
+                elseif v.value == "TYPE_NAME" then
+                  if not first then
+                    args = args .. ", "
+                  end
+                  first = false
+                  args = args .. "tn"
+                elseif
+                  v.value == "TYPE_NAME" or
+                  v.value == "STRING_CONSTANT" or
+                  v.value == "CHAR_CONSTANT" or
+                  v.value == "OCT_INT_CONSTANT" or
+                  v.value == "DEC_INT_CONSTANT" or
+                  v.value == "HEX_INT_CONSTANT" or
+                  v.value == "FLOAT_CONSTANT" then
+                  if not first then
+                    args = args .. ", "
+                  end
+                  first = false
+                  args = args .. "literal"
+                end
+                --print(string.format(tmpltfn, k, string.lower(v.value), string.lower(v.value), k))
+              end
+            end
+            return args
+          end)(rule))
+        --write(fp, "  -- %s\n", tostring(rule))
+        write(fp,"  print('in %s_%d ( %s)')\n\n", v.res, j, tostring(rule))
+        write(fp, "end\n\n")
+      end
+
+      write(fp, "--   ;\n\n")
+    end
+    fp:close()
+  end
+end
 
 --[[
 for i,v in ipairs(ret) do
@@ -216,3 +297,4 @@ for i,v in ipairs(ret) do
 end
 
 ]]
+

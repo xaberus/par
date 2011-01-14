@@ -114,18 +114,12 @@ local tmpl3 = [[
     lua_setfield(L, LUA_GLOBALSINDEX, "tree");
 ]]
 
-function special_handler(i, v, variant, rule)
-  if v.res == "declaration" then
-    print(string.format([[
-    /* typedef handler */
+local tmplhan =[[
     {
-      /*while(lua_gettop(L))
-        lua_pop(L, 1);*/
-    
       lua_State * L = parser->L;
-      
+
       lua_getfield(L, LUA_GLOBALSINDEX, "parser");
-      lua_getfield(L, -1, "declaration_handler");
+      lua_getfield(L, -1, "%s"); /* name */
       lua_remove(L, -2);
       lua_rawgeti(L, LUA_REGISTRYINDEX, $$);
       lua_pushnumber(L, %d); /* variant */
@@ -136,8 +130,12 @@ function special_handler(i, v, variant, rule)
         lua_pop(L, 1);
       }
     }
-    ]], variant))
-  end  
+]]
+
+function special_handler(i, v, variant, rule)
+  if v.res == "declaration" then
+    print(string.format(tmplhan, "declaration_handler", variant))
+  end
 end
 
 for i,v in ipairs(ret) do
@@ -163,7 +161,7 @@ for i,v in ipairs(ret) do
     end
 
     print(string.format(tmpl3))
-    
+
     special_handler(i, v, j, rule)
 
     print("  }")

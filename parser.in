@@ -14,7 +14,6 @@ constant
 	| FLOAT_CONSTANT
 	;
 	
-
 postfix_expression
 	: primary_expression
 	| postfix_expression L_BRACKET expression R_BRACKET
@@ -37,20 +36,15 @@ unary_expression
 	: postfix_expression
 	| INC_OP unary_expression
 	| DEC_OP unary_expression
-	| unary_operator cast_expression
+	| AMPERSAND cast_expression
+	| STAR cast_expression
+	| PLUS cast_expression
+	| MINUS cast_expression
+	| TILDE cast_expression
+	| EXCLAMATION cast_expression
 	| SIZEOF unary_expression
 	| SIZEOF L_PAREN type_name R_PAREN
 	;
-
-unary_operator
-	: AMPERSAND
-	| STAR
-	| PLUS
-	| MINUS
-	| TILDE
-	| EXCLAMATION
-	;
-
 
 cast_expression
 	: unary_expression
@@ -123,21 +117,17 @@ conditional_expression
 
 assignment_expression
 	: conditional_expression
-	| unary_expression assignment_operator assignment_expression
-	;
-
-assignment_operator
-	: ASSIGN
-	| MUL_ASSIGN
-	| DIV_ASSIGN
-	| MOD_ASSIGN
-	| ADD_ASSIGN
-	| SUB_ASSIGN
-	| LEFT_ASSIGN
-	| RIGHT_ASSIGN
-	| AND_ASSIGN
-	| XOR_ASSIGN
-	| OR_ASSIGN
+	| unary_expression ASSIGN assignment_expression
+	| unary_expression MUL_ASSIGN assignment_expression
+	| unary_expression DIV_ASSIGN assignment_expression
+	| unary_expression MOD_ASSIGN assignment_expression
+	| unary_expression ADD_ASSIGN assignment_expression
+	| unary_expression SUB_ASSIGN assignment_expression
+	| unary_expression LEFT_ASSIGN assignment_expression
+	| unary_expression RIGHT_ASSIGN assignment_expression
+	| unary_expression AND_ASSIGN assignment_expression
+	| unary_expression XOR_ASSIGN assignment_expression
+	| unary_expression OR_ASSIGN assignment_expression
 	;
 
 expression
@@ -150,19 +140,9 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers SEMICOLON
-	| declaration_specifiers init_declarator_list SEMICOLON
-	;
-
-declaration_specifiers
-	: storage_class_specifier
-	| storage_class_specifier declaration_specifiers
-	| type_specifier
-	| type_specifier declaration_specifiers
-	| type_qualifier
-	| type_qualifier declaration_specifiers
-	| function_specifier
-	| function_specifier declaration_specifiers
+	: type_name init_declarator_list SEMICOLON
+	| TYPEDEF type_name IDENTIFIER SEMICOLON
+	| storage_class_specifier type_name init_declarator_list SEMICOLON
 	;
 
 init_declarator_list
@@ -171,13 +151,12 @@ init_declarator_list
 	;
 
 init_declarator
-	: declarator
-	| declarator ASSIGN initializer
+	: IDENTIFIER
+	| IDENTIFIER ASSIGN initializer
 	;
 
 storage_class_specifier
-	: TYPEDEF
-	| EXTERN
+	: EXTERN
 	| STATIC
 	| AUTO
 	| REGISTER
@@ -242,9 +221,9 @@ struct_declarator_list
 	;
 
 struct_declarator
-	: declarator
+	: IDENTIFIER
 	| COLON constant_expression
-	| declarator COLON constant_expression
+	| IDENTIFIER COLON constant_expression
 	;
 
 enum_specifier
@@ -275,28 +254,6 @@ function_specifier
 	: INLINE
 	;
 
-declarator
-	: pointer direct_declarator
-	| direct_declarator
-	;
-
-
-direct_declarator
-	: IDENTIFIER
-	| L_PAREN declarator R_PAREN
-	| direct_declarator L_BRACKET type_qualifier_list assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET type_qualifier_list R_BRACKET
-	| direct_declarator L_BRACKET assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET STATIC type_qualifier_list assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET type_qualifier_list STATIC assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET type_qualifier_list STAR R_BRACKET
-	| direct_declarator L_BRACKET STAR R_BRACKET
-	| direct_declarator L_BRACKET R_BRACKET
-	| direct_declarator L_PAREN parameter_type_list R_PAREN
-	| direct_declarator L_PAREN identifier_list R_PAREN
-	| direct_declarator L_PAREN R_PAREN
-	;
-
 pointer
 	: STAR
 	| STAR type_qualifier_list
@@ -321,14 +278,7 @@ parameter_list
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
-	;
-
-identifier_list
-	: IDENTIFIER
-	| identifier_list COMMA IDENTIFIER
+	: type_name IDENTIFIER
 	;
 
 type_name
@@ -341,6 +291,26 @@ abstract_declarator
 	| direct_abstract_declarator
 	| pointer direct_abstract_declarator
 	;
+
+/*
+	TODO: find out if removed too much
+
+direct_declarator
+	: IDENTIFIER
+	| L_PAREN declarator R_PAREN
+	| direct_declarator L_BRACKET type_qualifier_list assignment_expression R_BRACKET
+	| direct_declarator L_BRACKET type_qualifier_list R_BRACKET
+	| direct_declarator L_BRACKET assignment_expression R_BRACKET
+	| direct_declarator L_BRACKET STATIC type_qualifier_list assignment_expression R_BRACKET
+	| direct_declarator L_BRACKET type_qualifier_list STATIC assignment_expression R_BRACKET
+	| direct_declarator L_BRACKET type_qualifier_list STAR R_BRACKET
+	| direct_declarator L_BRACKET STAR R_BRACKET
+	| direct_declarator L_BRACKET R_BRACKET
+	| direct_declarator L_PAREN parameter_type_list R_PAREN
+	| direct_declarator L_PAREN identifier_list R_PAREN
+	| direct_declarator L_PAREN R_PAREN
+	;
+*/
 
 direct_abstract_declarator
 	: L_PAREN abstract_declarator R_PAREN
@@ -383,25 +353,18 @@ designator
 	| DOT IDENTIFIER
 	;
 
-
 statement
 	: closed_statement
 	| opened_statement
 	;
 
-
-
 if_clause
 	: IF L_PAREN expression R_PAREN
 	;
 
-
-
 do_clause
 	: DO
 	;
-
-
 
 for_clause
 	: FOR L_PAREN expression_statement expression_statement R_PAREN
@@ -410,21 +373,15 @@ for_clause
 	| FOR L_PAREN declaration expression_statement expression R_PAREN
 	;
 
-
-
 while_clause
 	: WHILE L_PAREN expression R_PAREN
 	;
-
-
 
 label
 	: IDENTIFIER COLON
 	| CASE constant_expression COLON
 	| DEFAULT COLON
 	;
-
-
 
 switch_clause
 	: SWITCH L_PAREN expression R_PAREN
@@ -451,7 +408,6 @@ closed_statement
 	| switch_clause compound_statement
 	| compound_statement
 	;
-
 
 compound_statement
 	: L_BRACE R_BRACE
@@ -484,7 +440,6 @@ jump_statement
 	| RETURN expression SEMICOLON
 	;
 
-
 source
 	: translation_unit
 	;
@@ -500,5 +455,6 @@ external_declaration
 	;
 
 function_definition
-	: declaration_specifiers declarator compound_statement
+	: type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement
+	| function_specifier type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement
 	;
