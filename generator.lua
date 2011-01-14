@@ -35,16 +35,17 @@ local tagmeta = {
   end
 }
 
+
+local locale = lpeg.locale()
+
 local cs = lpeg.P"/*"
 local ce = lpeg.P"*/"
-local ci = lpeg.R"az" + lpeg.R"AZ" +
-           lpeg.R"09" + lpeg.S"-_ \n\r\t\v"
-
+local ci = locale.print + locale.space + lpeg.S" "
 local G = lpeg.P{
   gram,
 
   gram = (exp)^1,
-  comment = cs * ( ci^1 - ce )^0 * ce,
+  comment = (cs * ( ci - ce )^0 * ce),
 
   space = (ws + comment)^0,
 
