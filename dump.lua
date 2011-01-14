@@ -5,17 +5,24 @@ end
 function tagdump(obj, depth, lvl, unfold, fp)
   -- [[
   --if not dump_subtree(obj) then
+  local green = "[1;32m"
+  local yellow = "[1;33m"
+  local red = "[1;31m"
+  local b = "[1;34m"
+  local clear = "[0;m"
     do
-      fp:write(indent(lvl) .. tostring(obj["tag"]).. " = {\n")
+      fp:write(indent(lvl) .. green .. tostring(obj["tag"]) .. clear .. " = "..b.."{"..clear.."\n")
       for k,v in pairs(obj) do
         if k ~= "tag" and string.byte(k,1) ~= 95 then
           if type(v) == "table" then
             if v.tag and (not unfold) then
               if v.tag == "token" then
                 if k == "identifier" then
+                  fp:write(yellow)
                   dump(v.value,depth,lvl+1, unfold, fp)
+                  fp:write(clear)
                 else
-                  fp:write(indent(lvl+1) ..  tostring(k) .. "\n")
+                  fp:write(indent(lvl+1) ..  red .. tostring(k) .. clear .. "\n")
                 end
               else
                 tagdump(v,depth,lvl+1,unfold, fp)
@@ -29,7 +36,7 @@ function tagdump(obj, depth, lvl, unfold, fp)
           end
         end
       end
-      fp:write(indent(lvl) .. "}\n")
+      fp:write(indent(lvl) ..b.."}"..clear.."\n")
     end
   --end
   fp:flush()
