@@ -143,6 +143,11 @@ declaration
 	: type_name init_declarator_list SEMICOLON
 	| TYPEDEF type_name IDENTIFIER SEMICOLON
 	| storage_class_specifier type_name init_declarator_list SEMICOLON
+	|	struct_or_union_definition SEMICOLON
+	;
+
+struct_or_union_definition
+	: struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE
 	;
 
 init_declarator_list
@@ -189,9 +194,8 @@ type_specifier
 	;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE
+	: struct_or_union IDENTIFIER
 	| struct_or_union L_BRACE struct_declaration_list R_BRACE
-	| struct_or_union IDENTIFIER
 	;
 
 struct_or_union
@@ -205,7 +209,7 @@ struct_declaration_list
 	;
 
 struct_declaration
-	: specifier_qualifier_list struct_declarator_list SEMICOLON
+	: type_name struct_declarator_list SEMICOLON
 	;
 
 specifier_qualifier_list
@@ -222,7 +226,6 @@ struct_declarator_list
 
 struct_declarator
 	: IDENTIFIER
-	| COLON constant_expression
 	| IDENTIFIER COLON constant_expression
 	;
 

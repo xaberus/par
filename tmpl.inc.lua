@@ -16,8 +16,12 @@ local getmetatable = getmetatable
 local tostring = tostring
 local tonumber = tonumber
 
+local debug = debug
+local collectgarbage = collectgarbage
 
 module("parser")
+
+
 
 -- primary_expression
 
@@ -516,6 +520,23 @@ function declaration_3(storage_class_specifier, type_name, init_declarator_list)
 
 end
 
+function declaration_4(struct_or_union_definition)
+  --print('in declaration_4 ( struct_or_union_declarator SEMICOLON )')
+  return struct_or_union_definition
+end
+
+--   ;
+
+-- struct_or_union_declarator
+
+function struct_or_union_definition_1(struct_or_union, identifier, struct_declaration_list)
+  --print('in struct_or_union_declarator_1 ( struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE )')
+  local s = struct_declaration_list
+  s:add_kind(struct_or_union)
+  s:add_id(identifier)
+  return s:finalize()
+end
+
 --   ;
 
 -- init_declarator_list
@@ -633,8 +654,8 @@ function type_specifier_12()
 end
 
 function type_specifier_13(struct_or_union_specifier)
-  print('in type_specifier_13 ( struct_or_union_specifier )')
-
+  --print('in type_specifier_13 ( struct_or_union_specifier )')
+  return struct_or_union_specifier;
 end
 
 function type_specifier_14(enum_specifier)
@@ -691,19 +712,14 @@ end
 
 -- struct_or_union_specifier
 
-function struct_or_union_specifier_1(struct_or_union, identifier, struct_declaration_list)
-  print('in struct_or_union_specifier_1 ( struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE )')
-
+function struct_or_union_specifier_1(struct_or_union, identifier)
+  print('in struct_or_union_specifier_1 ( struct_or_union IDENTIFIER )')
+  
 end
 
 function struct_or_union_specifier_2(struct_or_union, struct_declaration_list)
-  print('in struct_or_union_specifier_2 ( struct_or_union L_BRACE struct_declaration_list R_BRACE )')
-
-end
-
-function struct_or_union_specifier_3(struct_or_union, identifier)
-  print('in struct_or_union_specifier_3 ( struct_or_union IDENTIFIER )')
-
+  --print('in struct_or_union_specifier_2 ( struct_or_union L_BRACE struct_declaration_list R_BRACE )')
+  return struct_declaration_list:add_kind(struct_or_union)
 end
 
 --   ;
@@ -711,13 +727,13 @@ end
 -- struct_or_union
 
 function struct_or_union_1()
-  print('in struct_or_union_1 ( STRUCT )')
-
+  --print('in struct_or_union_1 ( STRUCT )')
+  return "struct"
 end
 
 function struct_or_union_2()
-  print('in struct_or_union_2 ( UNION )')
-
+  --print('in struct_or_union_2 ( UNION )')
+  return "union"
 end
 
 --   ;
@@ -725,22 +741,22 @@ end
 -- struct_declaration_list
 
 function struct_declaration_list_1(struct_declaration)
-  print('in struct_declaration_list_1 ( struct_declaration )')
-
+  --print('in struct_declaration_list_1 ( struct_declaration )')
+  return struct_meta():add_field(struct_declaration)
 end
 
 function struct_declaration_list_2(struct_declaration_list, struct_declaration)
-  print('in struct_declaration_list_2 ( struct_declaration_list struct_declaration )')
-
+  --print('in struct_declaration_list_2 ( struct_declaration_list struct_declaration )')
+  return struct_declaration_list + struct_meta():add_field(struct_declaration)
 end
 
 --   ;
 
 -- struct_declaration
 
-function struct_declaration_1(specifier_qualifier_list, struct_declarator_list)
-  print('in struct_declaration_1 ( specifier_qualifier_list struct_declarator_list SEMICOLON )')
-
+function struct_declaration_1(type_name, struct_declarator_list)
+  --print('in struct_declaration_1 ( type_name struct_declarator_list SEMICOLON )')
+  return struct_declarator_list:add_type(type_name):finalize()
 end
 
 --   ;
@@ -772,13 +788,13 @@ end
 -- struct_declarator_list
 
 function struct_declarator_list_1(struct_declarator)
-  print('in struct_declarator_list_1 ( struct_declarator )')
-
+  --print('in struct_declarator_list_1 ( struct_declarator )')
+  return struct_declarator
 end
 
 function struct_declarator_list_2(struct_declarator_list, struct_declarator)
-  print('in struct_declarator_list_2 ( struct_declarator_list COMMA struct_declarator )')
-
+  --print('in struct_declarator_list_2 ( struct_declarator_list COMMA struct_declarator )')
+  return struct_declarator_list + struct_declarator
 end
 
 --   ;
@@ -786,18 +802,15 @@ end
 -- struct_declarator
 
 function struct_declarator_1(identifier)
-  print('in struct_declarator_1 ( IDENTIFIER )')
-
+  --print('in struct_declarator_1 ( IDENTIFIER )')
+  return struct_decl_meta():add_id(identifier)
 end
 
-function struct_declarator_2(constant_expression)
-  print('in struct_declarator_2 ( COLON constant_expression )')
-
-end
-
-function struct_declarator_3(identifier, constant_expression)
-  print('in struct_declarator_3 ( IDENTIFIER COLON constant_expression )')
-
+function struct_declarator_2(identifier, constant_expression)
+  --print('in struct_declarator_2 ( IDENTIFIER COLON constant_expression )')
+  local n = constant_expression:finalize():tonumber()
+  assert(n)
+  return struct_decl_meta():add_id(identifier, n)
 end
 
 --   ;
@@ -1434,7 +1447,7 @@ end
 
 function external_declaration_2(declaration)
   --print('in external_declaration_2 ( declaration )')
-  return trans_meta():add_decl(function_definition);
+  return trans_meta():add_decl(declaration);
 end
 
 --   ;

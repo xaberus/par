@@ -46,7 +46,7 @@ function declaration_handler(tree, variant, typedefs)
 
   if variant == 1 then
     --dump(tree)
-  elseif variant == 2 then
+  --[[elseif variant == 2 then
     local r = decide_typedef(tree)
     --dump(tree)
     if r then
@@ -56,7 +56,7 @@ function declaration_handler(tree, variant, typedefs)
   elseif variant == 3 then
     --dump(tree,nil,nil,nil,io.stderr)
   else
-    error("not reached")
+    error("not reached")]]
   end
 end
 
@@ -301,7 +301,7 @@ stmt_meta = {
 	
 	finalize = function(self)
 		--dump(self)
-		print(tostring(self))
+		--print(tostring(self))
 		return self
 	end,
 }
@@ -324,8 +324,15 @@ trans_meta = {
 		return a
 	end,
 	__tostring = function(self)
-		local ret = blue .. "Trans("
-		return ret .. blue .. ")" .. clear
+		local ret = ""
+		for i, v in ipairs(self) do
+			if v.decl then
+				ret = ret .. tostring(v.decl) .. "\n"
+			elseif v.fun then	
+				ret = ret .. tostring(v.fun) .. "\n"
+			end
+		end
+		return ret
 	end,
 	add_decl = function(self, decl)
 		self[#self+1] = {decl = decl}
@@ -379,7 +386,7 @@ func_meta = {
 	
 	finalize = function(self)
 		--dump(self)
-		print(tostring(self))
+		--print(tostring(self))
 		return self
 	end,
 }
@@ -390,6 +397,109 @@ setmetatable(func_meta, {
 		return setmetatable(ret, func_meta)
   end,
 })
+
+-------------------------------------
+
+struct_decl_meta = {
+	__index = function(self,k)
+		return getmetatable(self)[k]
+  end,
+	__add = function(a, b)
+		for i,v in ipairs(b) do
+			a[#a+1] = v
+		end
+		return a
+	end,
+	__tostring = function(self)
+		local ret = blue .. "StructDecl(" .. tostring(self.t)
+		for i,v in ipairs(self) do
+			ret = ret .. ", "
+			ret = ret .. tostring(v.id)
+			if v.d then
+				ret = ret .. " : "
+				ret = ret .. tostring(v.d)
+			end
+		end
+		return ret .. blue .. ")" .. clear
+	end,
+	add_id = function(self, id, depth)
+		self[#self+1] = {id = id, d = depth}
+		return self
+	end,
+	add_type = function(self, t)
+		self.t = t
+		return self
+	end,
+	
+	finalize = function(self)
+		--dump(self)
+		--print(tostring(self))
+		return self
+	end,
+}
+
+setmetatable(struct_decl_meta, {
+  __call = function()
+		local ret = {}
+		return setmetatable(ret, struct_decl_meta)
+  end,
+})
+
+struct_meta = {
+	__index = function(self,k)
+		return getmetatable(self)[k]
+  end,
+  __add = function(a, b)
+		for i,v in ipairs(b) do
+			a[#a+1] = v
+		end
+		return a
+	end,
+	__tostring = function(self)
+		local ret = ""
+		if self.k == "struct" then
+			ret = ret .. "Struct" 
+		elseif self.k == "union" then
+			ret = ret .. "Union"
+		end
+		if self.id then
+		ret = ret .. " " .. tostring(self.id)
+		end
+		ret = ret .. " {\n"
+		for i, v in ipairs(self) do
+			ret = ret .. tostring(v) .. "\n"
+		end
+		return ret .. "}"
+	end,
+	add_field = function(self, field)
+		self[#self + 1] = field
+		return self
+	end,
+	add_kind = function(self, kind)
+		self.k = kind
+		return self
+	end,
+	add_id = function(self, id)
+		self.id = id
+		return self
+	end,
+
+	
+	finalize = function(self)
+		--dump(self)
+		--print(tostring(self))
+		return self
+	end,
+}
+
+setmetatable(struct_meta, {
+  __call = function(self)
+		local ret = {}
+		return setmetatable(ret, struct_meta)
+  end,
+})
+
+-------------------------------------
 
 expr_meta = {
 	__index = function(self,k)
@@ -423,6 +533,8 @@ expr_meta = {
 				return tostring(self.left) .. " + " .. tostring(self.right)
 			elseif op == "sub" then
 				return tostring(self.left) .. " - " .. tostring(self.right)
+			elseif op == "bor" then
+				return tostring(self.left) .. " | " .. tostring(self.right)
 			elseif op == "asgn" then
 				return tostring(self.left) .. " = " .. tostring(self.right)
 			else
@@ -461,6 +573,69 @@ expr_meta = {
 			right = b,
 		}, expr_meta)
   end,
+  bor = function(a, b)
+		return setmetatable({
+			op = "bor",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  band = function(a, b)
+		return setmetatable({
+			op = "band",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  bxor = function(a, b)
+		return setmetatable({
+			op = "bxor",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  lor = function(a, b)
+		return setmetatable({
+			op = "lor",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  land = function(a, b)
+		return setmetatable({
+			op = "land",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  gt = function(a, b)
+		return setmetatable({
+			op = "gt",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  ls = function(a, b)
+		return setmetatable({
+			op = "ls",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  le = function(a, b)
+		return setmetatable({
+			op = "le",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
+  ge = function(a, b)
+		return setmetatable({
+			op = "ge",
+			left = a,
+			right = b,
+		}, expr_meta)
+  end,
   asgn = function(a, b)
 		return setmetatable({
 			op = "asgn",
@@ -491,4 +666,3 @@ expr_meta = {
 		}, expr_meta)
 	end,
 }
-
