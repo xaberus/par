@@ -65,7 +65,7 @@ if out then
   ]]
 
   local tmplcall = [[
-      local v%d = %s(tree.%s, v)]]
+      local v%d = %s(tree.%s)]]
   local tmpltfn = [[
       local v%d = tree["%s"].value ]]
 
@@ -97,8 +97,6 @@ if out then
   ]])
 
   print(io.input("handlers.inc.lua"):read("*a"))
-
-  --print("dofile('handlers.inc.lua')")
   print("dofile('tmpl.inc.lua')")
 
 
@@ -117,8 +115,6 @@ if out then
         print(string.format(tmplelif, j))
       end
       
-      --print(string.format([[      print("in %s %d ( %s)")]], v.res, j, tostring(rule)))
-
       --local tmpl = template[v.res][j]
 
       for k, v in ipairs(rule) do
@@ -130,9 +126,7 @@ if out then
       end
 
       --print(string.format(template[v.res][j].text))
-      
-      print(string.format([[      return %s_%d(%s)]], v.res, j,
-        (function(rule)
+      local args = (function(rule)
           local args = ""
           local first = true
           for k, v in ipairs(rule) do
@@ -168,7 +162,14 @@ if out then
             end
           end
           return args
-        end)(rule)))
+        end)(rule)
+      --print(string.format([[      print("   in %s@%d ( %s)")]], v.res, j, tostring(rule)))
+      --print(string.format([[      dump({%s})]], args))
+        
+      print(string.format([[      local ret = %s_%d(%s)]], v.res, j, args))
+      --print(string.format([[      print(">>>>>>>>>>>>>>>>>>>>>>")]]))
+      --print(string.format([[      dump(ret)]]))
+      print(string.format([[      return ret]]))
     end
 
     print(string.format(tmplfi))

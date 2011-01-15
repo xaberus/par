@@ -63,7 +63,7 @@ function dump(obj, depth, lvl, unfold, fp)
               tagdump(v,depth,lvl+1, unfold, fp)
             else
               if type(k) == "number" then
-                fp:write(indent(lvl) .. string.format("[%d]", k).. " = {\n")
+                fp:write(indent(lvl) .. string.format("%d", k).. " = {\n")
               else
                 fp:write(indent(lvl) .. tostring(k) .. " = {\n")
               end
