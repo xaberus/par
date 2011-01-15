@@ -153,53 +153,53 @@ function unary_expression_1(postfix_expression)
 end
 
 function unary_expression_2(unary_expression)
-  print('in unary_expression_2 ( INC_OP unary_expression )')
-
+  --print('in unary_expression_2 ( INC_OP unary_expression )')
+  return cast_expression:uinc()
 end
 
 function unary_expression_3(unary_expression)
-  print('in unary_expression_3 ( DEC_OP unary_expression )')
-
+  --print('in unary_expression_3 ( DEC_OP unary_expression )')
+  return cast_expression:udec()
 end
 
 function unary_expression_4(cast_expression)
-  print('in unary_expression_4 ( AMPERSAND cast_expression )')
-
+  --print('in unary_expression_4 ( AMPERSAND cast_expression )')
+  return cast_expression:ref()
 end
 
 function unary_expression_5(cast_expression)
-  print('in unary_expression_5 ( STAR cast_expression )')
-
+  --print('in unary_expression_5 ( STAR cast_expression )')
+  return cast_expression:ptr()
 end
 
 function unary_expression_6(cast_expression)
-  print('in unary_expression_6 ( PLUS cast_expression )')
-
+  --print('in unary_expression_6 ( PLUS cast_expression )')
+  return cast_expression:unp()
 end
 
 function unary_expression_7(cast_expression)
   --print('in unary_expression_7 ( MINUS cast_expression )')
-  return -cast_expression;
+  return -cast_expression
 end
 
 function unary_expression_8(cast_expression)
-  print('in unary_expression_8 ( TILDE cast_expression )')
-
+  --print('in unary_expression_8 ( TILDE cast_expression )')
+  return cast_expression:bnot()
 end
 
 function unary_expression_9(cast_expression)
-  print('in unary_expression_9 ( EXCLAMATION cast_expression )')
-
+  --print('in unary_expression_9 ( EXCLAMATION cast_expression )')
+  return cast_expression:lnot()
 end
 
 function unary_expression_10(unary_expression)
-  print('in unary_expression_10 ( SIZEOF unary_expression )')
+  --print('in unary_expression_10 ( SIZEOF unary_expression )')
 
 end
 
 function unary_expression_11(type_name)
-  print('in unary_expression_11 ( SIZEOF L_PAREN type_name R_PAREN )')
-
+  --print('in unary_expression_11 ( SIZEOF L_PAREN type_name R_PAREN )')
+  return cast_expression:sizeof()
 end
 
 --   ;
@@ -236,8 +236,8 @@ function multiplicative_expression_3(multiplicative_expression, cast_expression)
 end
 
 function multiplicative_expression_4(multiplicative_expression, cast_expression)
-  print('in multiplicative_expression_4 ( multiplicative_expression PERCENT cast_expression )')
-
+  --print('in multiplicative_expression_4 ( multiplicative_expression PERCENT cast_expression )')
+  return multiplicative_expression % cast_expression
 end
 
 --   ;
@@ -255,8 +255,8 @@ function additive_expression_2(additive_expression, multiplicative_expression)
 end
 
 function additive_expression_3(additive_expression, multiplicative_expression)
-  print('in additive_expression_3 ( additive_expression MINUS multiplicative_expression )')
-
+  --print('in additive_expression_3 ( additive_expression MINUS multiplicative_expression )')
+  return additive_expression - multiplicative_expression
 end
 
 --   ;
@@ -288,23 +288,23 @@ function relational_expression_1(shift_expression)
 end
 
 function relational_expression_2(relational_expression, shift_expression)
-  print('in relational_expression_2 ( relational_expression LESS shift_expression )')
-
+  --print('in relational_expression_2 ( relational_expression LESS shift_expression )')
+  return relational_expression:ls(shift_expression)
 end
 
 function relational_expression_3(relational_expression, shift_expression)
-  print('in relational_expression_3 ( relational_expression GREATER shift_expression )')
-
+  --print('in relational_expression_3 ( relational_expression GREATER shift_expression )')
+  return relational_expression:gt(shift_expression)
 end
 
 function relational_expression_4(relational_expression, shift_expression)
-  print('in relational_expression_4 ( relational_expression LE_OP shift_expression )')
-
+  --print('in relational_expression_4 ( relational_expression LE_OP shift_expression )')
+  return relational_expression:le(shift_expression)
 end
 
 function relational_expression_5(relational_expression, shift_expression)
-  print('in relational_expression_5 ( relational_expression GE_OP shift_expression )')
-
+  --print('in relational_expression_5 ( relational_expression GE_OP shift_expression )')
+  return relational_expression:ge(shift_expression)
 end
 
 --   ;
@@ -317,13 +317,13 @@ function equality_expression_1(relational_expression)
 end
 
 function equality_expression_2(equality_expression, relational_expression)
-  print('in equality_expression_2 ( equality_expression EQ_OP relational_expression )')
-
+  --print('in equality_expression_2 ( equality_expression EQ_OP relational_expression )')
+  return equality_expression:eq(relational_expression)
 end
 
 function equality_expression_3(equality_expression, relational_expression)
-  print('in equality_expression_3 ( equality_expression NE_OP relational_expression )')
-
+  --print('in equality_expression_3 ( equality_expression NE_OP relational_expression )')
+  return equality_expression:ne(relational_expression)
 end
 
 --   ;
@@ -336,8 +336,8 @@ function and_expression_1(equality_expression)
 end
 
 function and_expression_2(and_expression, equality_expression)
-  print('in and_expression_2 ( and_expression AMPERSAND equality_expression )')
-
+  --print('in and_expression_2 ( and_expression AMPERSAND equality_expression )')
+  return and_expression:band(equality_expression)
 end
 
 --   ;
@@ -350,8 +350,8 @@ function exclusive_or_expression_1(and_expression)
 end
 
 function exclusive_or_expression_2(exclusive_or_expression, and_expression)
-  print('in exclusive_or_expression_2 ( exclusive_or_expression CIRCUMFLEX and_expression )')
-
+  --print('in exclusive_or_expression_2 ( exclusive_or_expression CIRCUMFLEX and_expression )')
+  return exclusive_or_expression:bxor(and_expression)
 end
 
 --   ;
@@ -364,8 +364,8 @@ function inclusive_or_expression_1(exclusive_or_expression)
 end
 
 function inclusive_or_expression_2(inclusive_or_expression, exclusive_or_expression)
-  print('in inclusive_or_expression_2 ( inclusive_or_expression PIPE exclusive_or_expression )')
-
+  --print('in inclusive_or_expression_2 ( inclusive_or_expression PIPE exclusive_or_expression )')
+  return inclusive_or_expression:bor(exclusive_or_expression)
 end
 
 --   ;
@@ -378,8 +378,8 @@ function logical_and_expression_1(inclusive_or_expression)
 end
 
 function logical_and_expression_2(logical_and_expression, inclusive_or_expression)
-  print('in logical_and_expression_2 ( logical_and_expression AND_OP inclusive_or_expression )')
-
+  --print('in logical_and_expression_2 ( logical_and_expression AND_OP inclusive_or_expression )')
+  return logical_and_expression:land(inclusive_or_expression)
 end
 
 --   ;
@@ -392,8 +392,8 @@ function logical_or_expression_1(logical_and_expression)
 end
 
 function logical_or_expression_2(logical_or_expression, logical_and_expression)
-  print('in logical_or_expression_2 ( logical_or_expression OR_OP logical_and_expression )')
-
+  --print('in logical_or_expression_2 ( logical_or_expression OR_OP logical_and_expression )')
+  return logical_or_expression:lor(logical_and_expression)
 end
 
 --   ;
@@ -425,53 +425,53 @@ function assignment_expression_2(unary_expression, assignment_expression)
 end
 
 function assignment_expression_3(unary_expression, assignment_expression)
-  print('in assignment_expression_3 ( unary_expression MUL_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_3 ( unary_expression MUL_ASSIGN assignment_expression )')
+  return unary_expression:mul_asgn(assignment_expression)
 end
 
 function assignment_expression_4(unary_expression, assignment_expression)
-  print('in assignment_expression_4 ( unary_expression DIV_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_4 ( unary_expression DIV_ASSIGN assignment_expression )')
+  return unary_expression:div_asgn(assignment_expression)
 end
 
 function assignment_expression_5(unary_expression, assignment_expression)
-  print('in assignment_expression_5 ( unary_expression MOD_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_5 ( unary_expression MOD_ASSIGN assignment_expression )')
+  return unary_expression:mod_asgn(assignment_expression)
 end
 
 function assignment_expression_6(unary_expression, assignment_expression)
-  print('in assignment_expression_6 ( unary_expression ADD_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_6 ( unary_expression ADD_ASSIGN assignment_expression )')
+  return unary_expression:add_asgn(assignment_expression)
 end
 
 function assignment_expression_7(unary_expression, assignment_expression)
-  print('in assignment_expression_7 ( unary_expression SUB_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_7 ( unary_expression SUB_ASSIGN assignment_expression )')
+  return unary_expression:sub_asgn(assignment_expression)
 end
 
 function assignment_expression_8(unary_expression, assignment_expression)
-  print('in assignment_expression_8 ( unary_expression LEFT_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_8 ( unary_expression LEFT_ASSIGN assignment_expression )')
+  return unary_expression:shl_asgn(assignment_expression)
 end
 
 function assignment_expression_9(unary_expression, assignment_expression)
-  print('in assignment_expression_9 ( unary_expression RIGHT_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_9 ( unary_expression RIGHT_ASSIGN assignment_expression )')
+  return unary_expression:shr_asgn(assignment_expression)
 end
 
 function assignment_expression_10(unary_expression, assignment_expression)
-  print('in assignment_expression_10 ( unary_expression AND_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_10 ( unary_expression AND_ASSIGN assignment_expression )')
+  return unary_expression:band_asgn(assignment_expression)
 end
 
 function assignment_expression_11(unary_expression, assignment_expression)
-  print('in assignment_expression_11 ( unary_expression XOR_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_11 ( unary_expression XOR_ASSIGN assignment_expression )')
+  return unary_expression:bxor_asgn(assignment_expression)
 end
 
 function assignment_expression_12(unary_expression, assignment_expression)
-  print('in assignment_expression_12 ( unary_expression OR_ASSIGN assignment_expression )')
-
+  --print('in assignment_expression_12 ( unary_expression OR_ASSIGN assignment_expression )')
+  return unary_expression:bor_asgn(assignment_expression)
 end
 
 --   ;
@@ -493,8 +493,8 @@ end
 -- constant_expression
 
 function constant_expression_1(conditional_expression)
-  print('in constant_expression_1 ( conditional_expression )')
-
+  --print('in constant_expression_1 ( conditional_expression )')
+  return conditional_expression:finalize()
 end
 
 --   ;
