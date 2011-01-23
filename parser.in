@@ -1,463 +1,838 @@
+tokens {
+  CHAR_CONSTANT(nil, func);
+  DEC_INT_CONSTANT(nil, func);
+  FLOAT_CONSTANT(nil, func);
+  HEX_INT_CONSTANT(nil, func);
+  OCT_INT_CONSTANT(nil, func);
+  STRING_CONSTANT(nil, func);
+
+  AUTO(nil, "auto");
+  BOOL(nil, "bool");
+  CHAR(nil, "char");
+  COMPLEX(nil, "complex");
+  DOUBLE(nil, "double");
+  FLOAT(nil, "float");
+  IMAGINARY(nil, "imaginary");
+  INT(nil, "int");
+  INT8(nil, "int8");
+  INT16(nil, "int16");
+  INT32(nil, "int32");
+  INT64(nil, "int64");
+  LONG(nil, "long");
+  SHORT(nil, "short");
+  SIGNED(nil, "signed");
+  UINT8(nil, "uint8");
+  UINT16(nil, "uint16");
+  UINT32(nil, "uint32");
+  UINT64(nil, "uin64");
+  UNSIGNED(nil, "unsigned");
+  VOID(nil, "void");
+
+  IDENTIFIER(nil, func);
+  TYPE_NAME(nil, func);
+
+  BREAK(nil, "break");
+  CASE(nil, "case");
+  CONTINUE(nil, "continue");
+  DEFAULT(nil, "default");
+  DO(nil, "do");
+  ELSE(nil, "else");
+  ENUM(nil, "enum");
+  FOR(nil, "for");
+  GOTO(nil, "goto");
+  IF(nil, "if");
+  RETURN(nil, "return");
+  SIZEOF(nil, "sizeof");
+  STRUCT(nil, "struct");
+  SWITCH(nil, "switch");
+  TYPEDEF(nil, "typedef");
+  UNION(nil, "union");
+  WHILE(nil, "while");
+
+  CONST(nil, "const");
+  EXTERN(nil, "extern");
+  INLINE(nil, "inline");
+  REGISTER(nil, "register");
+  RESTRICT(nil, "restrict");
+  STATIC(nil, "static");
+  VOLATILE(nil, "volatile");
+
+  ASSIGN(nil, "=");
+  ADD_ASSIGN(nil, "+=");
+  AND_ASSIGN(nil, "&=");
+  DIV_ASSIGN(nil, "/=");
+  LEFT_ASSIGN(nil, "<<=");
+  MOD_ASSIGN(nil, "%=");
+  MUL_ASSIGN(nil, "*=");
+  OR_ASSIGN(nil, "|=");
+  RIGHT_ASSIGN(nil, ">>=");
+  SUB_ASSIGN(nil, "-=");
+  XOR_ASSIGN(nil, "^=");
+
+  AMPERSAND(nil, "&");
+  AND_OP(nil, "&&");
+  CIRCUMFLEX(nil, "^");
+  DOT(nil, ".");
+  DEC_OP(nil, "--");
+  EQ_OP(nil, "==");
+  GE_OP(nil, ">=");
+  GREATER(nil, ">");
+  INC_OP(nil, "++");
+  LEFT_OP(nil, "<<");
+  LE_OP(nil, "<=");
+  LESS(nil, "<");
+  MINUS(nil, "-");
+  NE_OP(nil, "!=");
+  OR_OP(nil, "||");
+  PERCENT(nil, "%");
+  PIPE(nil, "|");
+  PLUS(nil, "+");
+  PTR_OP(nil, "->");
+  RIGHT_OP(nil, ">>");
+  SLASH(nil, "/");
+  STAR(nil, "*");
+  TILDE(nil, "~");
+
+  COLON(nil, ":");
+  COMMA(nil, ",");
+  EXCLAMATION(nil, "!");
+  QUESTION(nil, "?");
+  SEMICOLON(nil, ";");
+  ELLIPSIS(nil, "...");
+
+  L_BRACE(nil, "{");
+  R_BRACE(nil, "}");
+  L_BRACKET(nil, "[");
+  R_BRACKET(nil, "]");
+  L_PAREN(nil, "(");
+  R_PAREN(nil, ")");
+  LINE_COMMENT(nil, func);
+  MULTI_LINE_COMMENT(nil, func);
+
+ /* ERROR(nil, error);*/
+  END(0, eof);
+}
+
 primary_expression
-	: IDENTIFIER
-	| constant
-	| STRING_LITERAL
-	| L_PAREN expression R_PAREN
-	;
+  : IDENTIFIER
+    @L{return Expression.Identifier($1)}
+  | constant
+    @L{return $1}
+  | L_PAREN expression R_PAREN
+    @L{$2:par()}
+  | L_PAREN compound_statement R_PAREN
+    @L{return Expression.Statement($2)}
+  ;
 
 constant
-	: STRING_CONSTANT
-	| CHAR_CONSTANT
-	| OCT_INT_CONSTANT
-	| DEC_INT_CONSTANT
-	| HEX_INT_CONSTANT
-	| FLOAT_CONSTANT
-	;
-	
+  : STRING_CONSTANT
+    @L{return Expression.Constant("string", $1)}
+  | CHAR_CONSTANT
+    @L{return Expression.Constant("char", $1)}
+  | OCT_INT_CONSTANT
+    @L{return Expression.Constant("oct", $1)}
+  | DEC_INT_CONSTANT
+    @L{return Expression.Constant("dec", $1)}
+  | HEX_INT_CONSTANT
+    @L{return Expression.Constant("hex", $1)}
+  | FLOAT_CONSTANT
+    @L{return Expression.Constant("float", $1)}
+  ;
+  
 postfix_expression
-	: primary_expression
-	| postfix_expression L_BRACKET expression R_BRACKET
-	| postfix_expression L_PAREN R_PAREN
-	| postfix_expression L_PAREN argument_expression_list R_PAREN
-	| postfix_expression DOT IDENTIFIER
-	| postfix_expression PTR_OP IDENTIFIER
-	| postfix_expression INC_OP
-	| postfix_expression DEC_OP
-	| L_PAREN type_name R_PAREN L_BRACE initializer_list R_BRACE
-	| L_PAREN type_name R_PAREN L_BRACE initializer_list COMMA R_BRACE
-	;
+  : primary_expression
+    @L{return $1}
+  | postfix_expression L_BRACKET expression R_BRACKET
+    @L{return $1:add_index()}
+  | postfix_expression L_PAREN R_PAREN
+    @L{return $1:add_call()}
+  | postfix_expression L_PAREN argument_expression_list R_PAREN
+    @L{return $1:add_call($3)}
+  | postfix_expression DOT IDENTIFIER
+    @L{return $1:acc_deref($3)}
+  | postfix_expression PTR_OP IDENTIFIER
+    @L{return $1:acc_ptrderef($3)}
+  | postfix_expression INC_OP
+    @L{return $1:inc()}
+  | postfix_expression DEC_OP
+    @L{return $1:dec()}
+  | L_PAREN type_name R_PAREN L_BRACE initializer_list R_BRACE
+    @L{return Expression.Construct($2, $5)}
+  | L_PAREN type_name R_PAREN L_BRACE initializer_list COMMA R_BRACE
+    @L{return Expression.Construct($2, $5)}
+  ;
 
 argument_expression_list
-	: assignment_expression
-	| argument_expression_list COMMA assignment_expression
-	;
+  : assignment_expression
+    @L{return Expression.ArgList($1)}
+  | argument_expression_list COMMA assignment_expression
+    @L{return $1:next($3)}
+  ;
 
 unary_expression
-	: postfix_expression
-	| INC_OP unary_expression
-	| DEC_OP unary_expression
-	| AMPERSAND cast_expression
-	| STAR cast_expression
-	| PLUS cast_expression
-	| MINUS cast_expression
-	| TILDE cast_expression
-	| EXCLAMATION cast_expression
-	| SIZEOF unary_expression
-	| SIZEOF L_PAREN type_name R_PAREN
-	;
+  : postfix_expression
+    @L{return $1}
+  | INC_OP unary_expression
+    @L{return $2:uinc()}
+  | DEC_OP unary_expression
+    @L{return $2:udec()}
+  | AMPERSAND cast_expression
+    @L{return $2:addr()}
+  | STAR cast_expression
+    @L{return $2:deref()}
+  | PLUS cast_expression
+    @L{return $2:unp()}
+  | MINUS cast_expression
+    @L{return $2:unm()}
+  | TILDE cast_expression
+    @L{return $2:bnot()}
+  | EXCLAMATION cast_expression
+    @L{return $2:lnot()}
+  | SIZEOF unary_expression
+    @L{return Expression.ExpressionSizeof($2)}
+  | SIZEOF L_PAREN type_name R_PAREN
+    @L{return Expression.TypeSizeof($3)}
+  ;
 
 cast_expression
-	: unary_expression
-	| L_PAREN type_name R_PAREN cast_expression
-	;
+  : unary_expression
+    @L{return $1}
+  | L_PAREN type_name R_PAREN cast_expression
+    @L{return $4:cast($2)}
+  ;
 
 
 multiplicative_expression
-	: cast_expression
-	| multiplicative_expression STAR cast_expression
-	| multiplicative_expression SLASH cast_expression
-	| multiplicative_expression PERCENT cast_expression
-	;
+  : cast_expression
+    @L{return $1}
+  | multiplicative_expression STAR cast_expression
+    @L{return $1:mul($3)}
+  | multiplicative_expression SLASH cast_expression
+    @L{return $1:div($3)}
+  | multiplicative_expression PERCENT cast_expression
+    @L{return $1:mod($3)}
+  ;
 
 additive_expression
-	: multiplicative_expression
-	| additive_expression PLUS multiplicative_expression
-	| additive_expression MINUS multiplicative_expression
-	;
+  : multiplicative_expression
+    @L{return $1}
+  | additive_expression PLUS multiplicative_expression
+    @L{return $1:add($3)}
+  | additive_expression MINUS multiplicative_expression
+    @L{return $1:sub($3)}
+  ;
 
 shift_expression
-	: additive_expression
-	| shift_expression LEFT_OP additive_expression
-	| shift_expression RIGHT_OP additive_expression
-	;
+  : additive_expression
+    @L{return $1}
+  | shift_expression LEFT_OP additive_expression
+    @L{return $1:shl($3)}
+  | shift_expression RIGHT_OP additive_expression
+    @L{return $1:shr($3)}
+  ;
 
 relational_expression
-	: shift_expression
-	| relational_expression LESS shift_expression
-	| relational_expression GREATER shift_expression
-	| relational_expression LE_OP shift_expression
-	| relational_expression GE_OP shift_expression
-	;
+  : shift_expression
+    @L{return $1}
+  | relational_expression LESS shift_expression
+    @L{return $1:ls($3)}
+  | relational_expression GREATER shift_expression
+    @L{return $1:gt($3)}
+  | relational_expression LE_OP shift_expression
+    @L{return $1:le($3)}
+  | relational_expression GE_OP shift_expression
+    @L{return $1:ge($3)}
+  ;
 
 equality_expression
-	: relational_expression
-	| equality_expression EQ_OP relational_expression
-	| equality_expression NE_OP relational_expression
-	;
+  : relational_expression
+    @L{return $1}
+  | equality_expression EQ_OP relational_expression
+    @L{return $1:eq($3)}
+  | equality_expression NE_OP relational_expression
+    @L{return $1:ne($3)}
+  ;
 
 and_expression
-	: equality_expression
-	| and_expression AMPERSAND equality_expression
-	;
+  : equality_expression
+    @L{return $1}
+  | and_expression AMPERSAND equality_expression
+    @L{return $1:band($3)}
+  ;
 
 exclusive_or_expression
-	: and_expression
-	| exclusive_or_expression CIRCUMFLEX and_expression
-	;
+  : and_expression
+    @L{return $1}
+  | exclusive_or_expression CIRCUMFLEX and_expression
+    @L{return $1:bxor($3)}
+  ;
 
 inclusive_or_expression
-	: exclusive_or_expression
-	| inclusive_or_expression PIPE exclusive_or_expression
-	;
+  : exclusive_or_expression
+    @L{return $1}
+  | inclusive_or_expression PIPE exclusive_or_expression
+    @L{return $1:bor($3)}
+  ;
 
 logical_and_expression
-	: inclusive_or_expression
-	| logical_and_expression AND_OP inclusive_or_expression
-	;
+  : inclusive_or_expression
+    @L{return $1}
+  | logical_and_expression AND_OP inclusive_or_expression
+    @L{return $1:land($3)}
+  ;
 
 logical_or_expression
-	: logical_and_expression
-	| logical_or_expression OR_OP logical_and_expression
-	;
+  : logical_and_expression
+    @L{return $1}
+  | logical_or_expression OR_OP logical_and_expression
+    @L{return $1:lor($3)}
+  ;
 
 conditional_expression
-	: logical_or_expression
-	| logical_or_expression QUESTION expression COLON conditional_expression
-	;
+  : logical_or_expression
+    @L{return $1}
+  | logical_or_expression QUESTION expression COLON conditional_expression
+    @L{return $1:cond($3, $5)}
+  ;
 
 assignment_expression
-	: conditional_expression
-	| unary_expression ASSIGN assignment_expression
-	| unary_expression MUL_ASSIGN assignment_expression
-	| unary_expression DIV_ASSIGN assignment_expression
-	| unary_expression MOD_ASSIGN assignment_expression
-	| unary_expression ADD_ASSIGN assignment_expression
-	| unary_expression SUB_ASSIGN assignment_expression
-	| unary_expression LEFT_ASSIGN assignment_expression
-	| unary_expression RIGHT_ASSIGN assignment_expression
-	| unary_expression AND_ASSIGN assignment_expression
-	| unary_expression XOR_ASSIGN assignment_expression
-	| unary_expression OR_ASSIGN assignment_expression
-	;
+  : conditional_expression
+    @L{return $1}
+  | unary_expression ASSIGN assignment_expression
+    @L{return $1:asgn($3)}
+  | unary_expression MUL_ASSIGN assignment_expression
+    @L{return $1:mul_asgn($3)}
+  | unary_expression DIV_ASSIGN assignment_expression
+    @L{return $1:div_asgn($3)}
+  | unary_expression MOD_ASSIGN assignment_expression
+    @L{return $1:mod_asgn($3)}
+  | unary_expression ADD_ASSIGN assignment_expression
+    @L{return $1:add_asgn($3)}
+  | unary_expression SUB_ASSIGN assignment_expression
+    @L{return $1:sub_asgn($3)}
+  | unary_expression LEFT_ASSIGN assignment_expression
+    @L{return $1:shl_asgn($3)}
+  | unary_expression RIGHT_ASSIGN assignment_expression
+    @L{return $1:shr_asgn($3)}
+  | unary_expression AND_ASSIGN assignment_expression
+    @L{return $1:band_asgn($3)}
+  | unary_expression XOR_ASSIGN assignment_expression
+    @L{return $1:bxor_asgn($3)}
+  | unary_expression OR_ASSIGN assignment_expression
+    @L{return $1:bor_asgn($3)}
+  ;
 
 expression
-	: assignment_expression
-	| expression COMMA assignment_expression
-	;
+  : assignment_expression
+    @L{return $1}
+  | expression COMMA assignment_expression
+    @L{return $1:next($3)}
+  ;
 
 constant_expression
-	: conditional_expression
-	;
+  : conditional_expression
+    @L{return $1}
+  ;
 
 declaration
-	: type_name init_declarator_list SEMICOLON
-	| TYPEDEF type_name IDENTIFIER SEMICOLON
-	| storage_class_specifier type_name init_declarator_list SEMICOLON
-	|	struct_or_union_definition SEMICOLON
-	;
+  : type_name init_declarator_list SEMICOLON
+    @L{return $2:add_type($1)}
+  | TYPEDEF type_name IDENTIFIER SEMICOLON
+    @L{return env:type_reg($3.value, $2)}
+  | storage_class_specifier type_name init_declarator_list SEMICOLON
+    @L{return $2:add_type($2):add_stor_class($1)}
+  |  struct_or_union_definition SEMICOLON
+    @L{return $1}
+  ;
 
 struct_or_union_definition
-	: struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE
-	;
+  : struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE
+    @L{return env:struct_reg($2.value, $4:add_kind($1):add_id($2))}
+  ;
 
 init_declarator_list
-	: init_declarator
-	| init_declarator_list COMMA init_declarator
-	;
+  : init_declarator
+    @L{return $1}
+  | init_declarator_list COMMA init_declarator
+    @L{return $1:next($3)}
+  ;
 
 init_declarator
-	: IDENTIFIER
-	| IDENTIFIER ASSIGN initializer
-	;
+  : IDENTIFIER
+    @L{return decl_meta():add_id($1)}
+  | IDENTIFIER ASSIGN initializer
+    @L{return decl_meta():add_id($1, $3)}
+  ;
 
 storage_class_specifier
-	: EXTERN
-	| STATIC
-	| AUTO
-	| REGISTER
-	;
+  : EXTERN
+    @L{return type_meta():add_stor_class($1)}
+  | STATIC
+    @L{return type_meta():add_stor_class($1)}
+  | AUTO
+    @L{return type_meta():add_stor_class($1)}
+  | REGISTER
+    @L{return type_meta():add_stor_class($1)}
+  ;
 
 type_specifier
-	: VOID
-	| CHAR
-	| SHORT
-	| INT
-	| LONG
-	| FLOAT
-	| DOUBLE
-	| SIGNED
-	| UNSIGNED
-	| BOOL
-	| COMPLEX
-	| IMAGINARY
-	| struct_or_union_specifier
-	| enum_specifier
-	| TYPE_NAME
-	| INT8
-	| INT16
-	| INT32
-	| INT64
-	| UINT8
-	| UINT16
-	| UINT32
-	| UINT64
-	;
+  : VOID
+    @L{return type_meta():add_type_specifier($1)}
+  | CHAR
+    @L{return type_meta():add_type_specifier($1)}
+  | SHORT
+    @L{return type_meta():add_type_specifier($1)}
+  | INT
+    @L{return type_meta():add_type_specifier($1)}
+  | LONG
+    @L{return type_meta():add_type_specifier($1)}
+  | FLOAT
+    @L{return type_meta():add_type_specifier($1)}
+  | DOUBLE
+    @L{return type_meta():add_type_specifier($1)}
+  | SIGNED
+    @L{return type_meta():add_type_specifier($1)}
+  | UNSIGNED
+    @L{return type_meta():add_type_specifier($1)}
+  | BOOL
+    @L{return type_meta():add_type_specifier($1)}
+  | COMPLEX
+    @L{return type_meta():add_type_specifier($1)}
+  | IMAGINARY
+    @L{return type_meta():add_type_specifier($1)}
+  | struct_or_union_specifier
+    @L{return type_meta():add_struct_specifier($1)}
+  | enum_specifier
+    @L{return type_meta():add_enum_specifier($1)}
+  | TYPE_NAME
+    @L{return type_meta():add_type_ref($1)}
+  | INT8
+    @L{return type_meta():add_type_specifier($1)}
+  | INT16
+    @L{return type_meta():add_type_specifier($1)}
+  | INT32
+    @L{return type_meta():add_type_specifier($1)}
+  | INT64
+    @L{return type_meta():add_type_specifier($1)}
+  | UINT8
+    @L{return type_meta():add_type_specifier($1)}
+  | UINT16
+    @L{return type_meta():add_type_specifier($1)}
+  | UINT32
+    @L{return type_meta():add_type_specifier($1)}
+  | UINT64
+    @L{return type_meta():add_type_specifier($1)}
+  ;
 
 struct_or_union_specifier
-	: struct_or_union IDENTIFIER
-	| struct_or_union L_BRACE struct_declaration_list R_BRACE
-	;
+  : struct_or_union IDENTIFIER
+    @L{return env:struct_get($2.value)}
+  | struct_or_union L_BRACE struct_declaration_list R_BRACE
+    @L{return $3:add_kind($1)}
+  ;
 
 struct_or_union
-	: STRUCT
-	| UNION
-	;
+  : STRUCT
+    @L{return $1}
+  | UNION
+    @L{return $1}
+  ;
 
 struct_declaration_list
-	: struct_declaration
-	| struct_declaration_list struct_declaration
-	;
+  : struct_declaration
+    @L{return struct_meta():add_field($1)}
+  | struct_declaration_list struct_declaration
+    @L{return $1:next($2)}
+  ;
 
 struct_declaration
-	: type_name struct_declarator_list SEMICOLON
-	;
+  : type_name struct_declarator_list SEMICOLON
+    @L{return $2:add_type($1)}
+  ;
 
 specifier_qualifier_list
-	: type_specifier specifier_qualifier_list
-	| type_specifier
-	| type_qualifier specifier_qualifier_list
-	| type_qualifier
-	;
+  : type_specifier specifier_qualifier_list
+    @L{return $1:join($2)}
+  | type_specifier
+    @L{return $1}
+  | type_qualifier specifier_qualifier_list
+    @L{return $1:join($2)}
+  | type_qualifier
+    @L{return $1}
+  ;
 
 struct_declarator_list
-	: struct_declarator
-	| struct_declarator_list COMMA struct_declarator
-	;
+  : struct_declarator
+    @L{return $1}
+  | struct_declarator_list COMMA struct_declarator
+    @L{return $1:join($3)}
+  ;
 
 struct_declarator
-	: IDENTIFIER
-	| IDENTIFIER COLON constant_expression
-	;
+  : IDENTIFIER
+    @L{return struct_decl_meta():add_id($1)}
+  | IDENTIFIER COLON constant_expression
+    @L{return struct_decl_meta():add_id($1, $3)}
+  ;
 
+/* XXX enum! */
 enum_specifier
-	: ENUM L_BRACE enumerator_list R_BRACE
-	| ENUM IDENTIFIER L_BRACE enumerator_list R_BRACE
-	| ENUM L_BRACE enumerator_list COMMA R_BRACE
-	| ENUM IDENTIFIER L_BRACE enumerator_list COMMA R_BRACE
-	| ENUM IDENTIFIER
-	;
+  : ENUM L_BRACE enumerator_list R_BRACE
+    @L{}
+  | ENUM IDENTIFIER L_BRACE enumerator_list R_BRACE
+    @L{}
+  | ENUM L_BRACE enumerator_list COMMA R_BRACE
+    @L{}
+  | ENUM IDENTIFIER L_BRACE enumerator_list COMMA R_BRACE
+    @L{}
+  | ENUM IDENTIFIER
+    @L{}
+  ;
 
 enumerator_list
-	: enumerator
-	| enumerator_list COMMA enumerator
-	;
+  : enumerator
+    @L{}
+  | enumerator_list COMMA enumerator
+    @L{}
+  ;
 
 enumerator
-	: IDENTIFIER
-	| IDENTIFIER ASSIGN constant_expression
-	;
+  : IDENTIFIER
+    @L{}
+  | IDENTIFIER ASSIGN constant_expression
+    @L{}
+  ;
 
 type_qualifier
-	: CONST
-	| RESTRICT
-	| VOLATILE
-	;
-
-function_specifier
-	: INLINE
-	;
+  : CONST
+    @L{return type_meta():add_qualifier($1)}
+  | RESTRICT
+    @L{return type_meta():add_qualifier($1)}
+  | VOLATILE
+    @L{return type_meta():add_qualifier($1)}
+  ;
 
 pointer
-	: STAR
-	| STAR type_qualifier_list
-	| STAR pointer
-	| STAR type_qualifier_list pointer
-	;
+  : STAR
+    @L{return type_meta():add_ref("pointer")}
+  | STAR type_qualifier_list
+    @L{return type_meta():add_ref("pointer"):join(type_meta():add_qualifier($2))}
+  | STAR pointer
+    @L{return type_meta():add_ref("pointer"):join($2)}
+  | STAR type_qualifier_list pointer
+    @L{return type_meta():add_ref("pointer"):join(type_meta():add_qualifier($2)):join($3)}
+  ;
 
 type_qualifier_list
-	: type_qualifier
-	| type_qualifier_list type_qualifier
-	;
+  : type_qualifier
+    @L{return $1}
+  | type_qualifier_list type_qualifier
+    @L{return $1:joion($2)}
+  ;
 
 
 parameter_type_list
-	: parameter_list
-	| parameter_list COMMA ELLIPSIS
-	;
+  : parameter_list
+    @L{return $1}
+  | parameter_list COMMA ELLIPSIS
+    @L{return $1:add_vararg()}
+  ;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list COMMA parameter_declaration
-	;
+  : parameter_declaration
+    @L{return $1}
+  | parameter_list COMMA parameter_declaration
+    @L{return $1:next($3)}
+  ;
 
 parameter_declaration
-	: type_name IDENTIFIER
-	;
+  : type_name IDENTIFIER
+    @L{return param_meta():add_decl($1, $2)}
+  ;
 
 type_name
-	: specifier_qualifier_list
-	| specifier_qualifier_list abstract_declarator
-	;
+  : specifier_qualifier_list
+    @L{return $1}
+  | specifier_qualifier_list abstract_declarator
+    @L{return $1:join($2)}
+  ;
 
 abstract_declarator
-	: pointer
-	| direct_abstract_declarator
-	| pointer direct_abstract_declarator
-	;
+  : pointer
+    @L{return $1}
+  | direct_abstract_declarator
+    @L{return $1}
+  | pointer direct_abstract_declarator
+    @L{return $1:join($2)}
+  ;
 
 /*
-	TODO: find out if removed too much
+  TODO: find out if removed too much
 
 direct_declarator
-	: IDENTIFIER
-	| L_PAREN declarator R_PAREN
-	| direct_declarator L_BRACKET type_qualifier_list assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET type_qualifier_list R_BRACKET
-	| direct_declarator L_BRACKET assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET STATIC type_qualifier_list assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET type_qualifier_list STATIC assignment_expression R_BRACKET
-	| direct_declarator L_BRACKET type_qualifier_list STAR R_BRACKET
-	| direct_declarator L_BRACKET STAR R_BRACKET
-	| direct_declarator L_BRACKET R_BRACKET
-	| direct_declarator L_PAREN parameter_type_list R_PAREN
-	| direct_declarator L_PAREN identifier_list R_PAREN
-	| direct_declarator L_PAREN R_PAREN
-	;
+  : IDENTIFIER
+  | L_PAREN declarator R_PAREN
+  | direct_declarator L_BRACKET type_qualifier_list assignment_expression R_BRACKET
+  | direct_declarator L_BRACKET type_qualifier_list R_BRACKET
+  | direct_declarator L_BRACKET assignment_expression R_BRACKET
+  | direct_declarator L_BRACKET STATIC type_qualifier_list assignment_expression R_BRACKET
+  | direct_declarator L_BRACKET type_qualifier_list STATIC assignment_expression R_BRACKET
+  | direct_declarator L_BRACKET type_qualifier_list STAR R_BRACKET
+  | direct_declarator L_BRACKET STAR R_BRACKET
+  | direct_declarator L_BRACKET R_BRACKET
+  | direct_declarator L_PAREN parameter_type_list R_PAREN
+  | direct_declarator L_PAREN identifier_list R_PAREN
+  | direct_declarator L_PAREN R_PAREN
+  ;
 */
 
 direct_abstract_declarator
-	: L_PAREN abstract_declarator R_PAREN
-	| L_BRACKET R_BRACKET
-	| L_BRACKET assignment_expression R_BRACKET
-	| direct_abstract_declarator L_BRACKET R_BRACKET
-	| direct_abstract_declarator L_BRACKET assignment_expression R_BRACKET
-	| L_BRACKET STAR R_BRACKET
-	| direct_abstract_declarator L_BRACKET STAR R_BRACKET
-	| L_PAREN R_PAREN
-	| L_PAREN parameter_type_list R_PAREN
-	| direct_abstract_declarator L_PAREN R_PAREN
-	| direct_abstract_declarator L_PAREN parameter_type_list R_PAREN
-	;
+  : L_PAREN abstract_declarator R_PAREN
+    @L{return $2:par()}
+  | L_BRACKET R_BRACKET
+    @L{return type_meta():add_vararray()}
+  | L_BRACKET assignment_expression R_BRACKET
+    @L{return type_meta():add_array($2)}
+  | direct_abstract_declarator L_BRACKET R_BRACKET
+    @L{return $1:join(type_meta():add_vararray())}
+  | direct_abstract_declarator L_BRACKET assignment_expression R_BRACKET
+    @L{return $1:join(type_meta():add_array($3))}
+  | L_BRACKET STAR R_BRACKET
+    /*@L{XXX}*/
+  | direct_abstract_declarator L_BRACKET STAR R_BRACKET
+    /*@L{XXX}*/
+  | L_PAREN R_PAREN
+    @L{return type_meta():add_params()}
+  | L_PAREN parameter_type_list R_PAREN
+    @L{return type_meta():add_params($2)}
+  | direct_abstract_declarator L_PAREN R_PAREN
+    @L{return $1:join(type_meta():add_params())}
+  | direct_abstract_declarator L_PAREN parameter_type_list R_PAREN
+    @L{return $1:join(type_meta():add_params($3))}
+  ;
 
 initializer
-	: assignment_expression
-	| L_BRACE initializer_list R_BRACE
-	| L_BRACE initializer_list COMMA R_BRACE
-	;
+  : assignment_expression
+    @L{return init_meta():add_expr($1)}
+  | L_BRACE initializer_list R_BRACE
+    @L{return init_meta():add_construct($2)}
+  | L_BRACE initializer_list COMMA R_BRACE
+    @L{return init_meta():add_construct($2)}
+  ;
 
 initializer_list
-	: initializer
-	| designation initializer
-	| initializer_list COMMA initializer
-	| initializer_list COMMA designation initializer
-	;
+  : initializer
+    @L{return designation_meta():add_init(nil, $1)}
+  | designation initializer
+    @L{return designation_meta():add_init($1, $2)}
+  | initializer_list COMMA initializer
+    @L{return $1:join($3)}
+  | initializer_list COMMA designation initializer
+    @L{return $1:join(designation_meta():add_init($3, $4))}
+  ;
 
 designation
-	: designator_list ASSIGN
-	;
+  : designator_list ASSIGN
+    @L{return $1}
+  ;
 
 designator_list
-	: designator
-	| designator_list designator
-	;
+  : designator
+    @L{return $1}
+  | designator_list designator
+    @L{return $1:next($2)}
+  ;
 
 designator
-	: L_BRACKET constant_expression R_BRACKET
-	| DOT IDENTIFIER
-	;
+  : L_BRACKET constant_expression R_BRACKET
+    @L{return desingator_meta():add_index($2)}
+  | DOT IDENTIFIER
+    @L{return desingator_meta():add_field($2)}
+  ;
 
 statement
-	: closed_statement
-	| opened_statement
-	;
+  : closed_statement
+    @L{return $1}
+  | opened_statement
+    @L{return $1}
+  ;
 
 if_clause
-	: IF L_PAREN expression R_PAREN
-	;
+  : IF L_PAREN expression R_PAREN
+    @L{return stmt_meta():add_if_clause($3)}
+  ;
 
 do_clause
-	: DO
-	;
+  : DO
+    @L{return stmt_meta():add_do_clause()}
+  ;
 
 for_clause
-	: FOR L_PAREN expression_statement expression_statement R_PAREN
-	| FOR L_PAREN expression_statement expression_statement expression R_PAREN
-	| FOR L_PAREN declaration expression_statement R_PAREN
-	| FOR L_PAREN declaration expression_statement expression R_PAREN
-	;
+  : FOR L_PAREN expression_statement expression_statement R_PAREN
+    @L{return stmt_meta():add_for_clause($3, $4)}
+  | FOR L_PAREN expression_statement expression_statement expression R_PAREN
+    @L{return stmt_meta():add_for_clause($3, $4, $5)}
+  | FOR L_PAREN declaration expression_statement R_PAREN
+    @L{return stmt_meta():add_for_clause($3, $4)}
+  | FOR L_PAREN declaration expression_statement expression R_PAREN
+    @L{return stmt_meta():add_for_clause($3, $4, $5)}
+  ;
 
 while_clause
-	: WHILE L_PAREN expression R_PAREN
-	;
+  : WHILE L_PAREN expression R_PAREN
+    @L{return stmt_meta():add_while_clause($3)}
+  ;
 
 label
-	: IDENTIFIER COLON
-	| CASE constant_expression COLON
-	| DEFAULT COLON
-	;
+  : IDENTIFIER COLON
+    @L{return stmt_meta():add_label($1)}
+  | CASE constant_expression COLON
+    @L{return stmt_meta():add_case($2)}
+  | DEFAULT COLON
+    @L{return stmt_meta():add_default()}
+  ;
 
 switch_clause
-	: SWITCH L_PAREN expression R_PAREN
-	;
+  : SWITCH L_PAREN expression R_PAREN
+    @L{return stmt_meta():add_switch_clause($3)}
+  ;
 
 
 opened_statement
-	: if_clause statement
-	| if_clause closed_statement ELSE opened_statement
-	| do_clause opened_statement while_clause SEMICOLON
-	| for_clause opened_statement
-	| while_clause opened_statement
-	| label opened_statement
-	;
+  : if_clause statement
+    @L{return stmt_meta.gen_o_if_stmt($1, $2)}
+  | if_clause closed_statement ELSE opened_statement
+    @L{return stmt_meta.gen_o_if_else_stmt($1, $2, $4)}
+  | do_clause opened_statement while_clause SEMICOLON
+    @L{return stmt_meta.gen_o_do_stmt($1, $2, $3)}
+  | for_clause opened_statement
+    @L{return stmt_meta.gen_o_for_stmt($1, $2)}
+  | while_clause opened_statement
+    @L{return stmt_meta.gen_o_while_stmt($1, $2)}
+  | label opened_statement
+    @L{return stmt_meta.gen_o_label_stmt($1, $2)}
+  ;
 
 closed_statement
-	: if_clause closed_statement ELSE closed_statement
-	| do_clause closed_statement while_clause SEMICOLON
-	| for_clause closed_statement
-	| while_clause closed_statement
-	| label closed_statement
-	| expression_statement
-	| jump_statement
-	| switch_clause compound_statement
-	| compound_statement
-	;
+  : if_clause closed_statement ELSE closed_statement
+    @L{return stmt_meta.gen_c_if_else_stmt($1, $2, $4)}
+  | do_clause closed_statement while_clause SEMICOLON
+    @L{return stmt_meta.gen_c_do_while_stmt($1, $2, $3)}
+  | for_clause closed_statement
+    @L{return stmt_meta.gen_c_for_stmt($1, $2)}
+  | while_clause closed_statement
+    @L{return stmt_meta.gen_c_while_stmt($1, $2)}
+  | label closed_statement
+    @L{return stmt_meta.gen_c_label_stmt($1, $2)}
+  | expression_statement
+    @L{return stmt_meta.gen_c_expr_stmt($1)}
+  | jump_statement
+    @L{return stmt_meta.gen_c_jump_stmt($1)}
+  | switch_clause compound_statement
+    @L{return stmt_meta.gen_c_switch_stmt($1, $2)}
+  | compound_statement
+    @L{return stmt_meta.gen_c_compound_stmt($1)}
+  ;
 
 compound_statement
-	: L_BRACE R_BRACE
-	| L_BRACE block_item_list R_BRACE
-	;
+  : L_BRACE R_BRACE
+    @L{return block_meta()}
+  | L_BRACE block_item_list R_BRACE
+    @L{return $2}
+  ;
 
 
 block_item_list
-	: block_item
-	| block_item_list block_item
-	;
+  : block_item
+    @L{return $1}
+  | block_item_list block_item
+    @L{return $1:join($2)}
+  ;
 
 block_item
-	: declaration
-	| statement
-	;
+  : declaration
+    @L{return block_meta():add_decl($1)}
+  | statement
+    @L{return block_meta():add_stmt($1)}
+  ;
 
 expression_statement
-	: SEMICOLON
-	| expression SEMICOLON
-  | L_PAREN compound_statement R_PAREN SEMICOLON
-	;
+  : SEMICOLON
+    @L{return stmt_meta()}
+  | expression SEMICOLON
+    @L{return stmt_meta():add_expr($1)}
+  ;
 
 
 jump_statement
-	: GOTO IDENTIFIER SEMICOLON
-	| CONTINUE SEMICOLON
-	| BREAK SEMICOLON
-	| RETURN SEMICOLON
-	| RETURN expression SEMICOLON
-	;
+  : GOTO IDENTIFIER SEMICOLON
+    @L{return stmt_meta():add_goto($2)}
+  | CONTINUE SEMICOLON
+    @L{return stmt_meta():add_continue()}
+  | BREAK SEMICOLON
+    @L{return stmt_meta():add_break()}
+  | RETURN SEMICOLON
+    @L{return stmt_meta():add_return()}
+  | RETURN expression SEMICOLON
+    @L{return stmt_meta():add_return($2)}
+  ;
 
 source
-	: translation_unit
-	;
+  : translation_unit
+    @L{ dump($1); return true }
+  ;
 
 translation_unit
-	: external_declaration
-	| translation_unit external_declaration
-	;
+  : external_declaration
+    @L{return $1}
+  | translation_unit external_declaration
+    @L{return $1:join($2)}
+  ;
 
 external_declaration
-	: function_definition
-	| declaration
-	;
+  : function_definition
+    @L{return trans_meta():add_fun($1)}
+  | declaration
+    @L{return trans_meta():add_decl($1)}
+  ;
+
+function_specifier_list
+  : function_specifier
+    @L{return $1}
+  | function_specifier_list function_specifier
+    @L{return $1:join($2)}
+  ;
+
+function_specifier
+  : INLINE
+    @L{return func_meta():add_spec($1)}
+/*  | STATIC
+    @L{return func_meta():add_spec($1)}
+  | HIDDEN
+    @L{return func_meta():add_spec($1)}
+  | PUBLIC
+    @L{return func_meta():add_spec($1)}
+  | PRIVATE
+    @L{return func_meta():add_spec($1)}*/
+  ;
 
 function_definition
-	: type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement
-	| function_specifier type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement
-	;
+  : type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement
+    @L{
+local f = func_meta()
+f:add_ret($1)
+f:add_id($2)
+f:add_param($4)
+f:add_comp($6)
+return f;
+    }
+  | function_specifier_list type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement
+    @L{
+local f = $1
+f:add_ret($2)
+f:add_id($3)
+f:add_param($5)
+f:add_comp($7)
+return f;
+}
+  ;

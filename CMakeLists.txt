@@ -12,24 +12,20 @@ include_directories(
 )
 
 set(CMAKE_C_FLAGS "-std=gnu99 -Wall -Wextra -pedantic -g -ggdb -DTEST -DNPOOL -fPIC")
+#-fprofile-arcs -ftest-coverage
 set(CMAKE_SHARED_LIBRARY_C_FLAGS "-Wl,--no-undefined")
-#-Werror -fprofile-arcs -ftest-coverage
+
 
 add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parser.y
-  COMMAND /usr/bin/lua tr.lua  ${PAR_SOURCE_DIR}/parser.in > ${PAR_SOURCE_DIR}/parser.y
-  DEPENDS parser.in tr.lua generator.lua
-)
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parser.lua
-  COMMAND /usr/bin/lua ta.lua  ${PAR_SOURCE_DIR}/parser.in > ${PAR_SOURCE_DIR}/parser.lua
-  DEPENDS parser.in ta.lua generator.lua handlers.inc.lua tmpl.inc.lua
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.lua
+  COMMAND /usr/bin/lua generator.lua  ${PAR_SOURCE_DIR}/parser.in
+  DEPENDS parser.in generator.lua
 )
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test
   COMMAND cp test.in test
-  DEPENDS parser.in ta.lua generator.lua handlers.inc.lua tmpl.inc.lua test.in
+  DEPENDS parser.in generator.lua handlers.inc.lua test.in
 )
 
 RAGEL_TARGET(lexer lexer.rl ${CMAKE_CURRENT_BINARY_DIR}/lexer.c)
