@@ -17,7 +17,12 @@ function tagdump(obj,id,depth, lvl, unfold, fp)
   local red = "[1;31m"
   local b = "[1;34m"
   local clear = "[0;m"
-  
+
+  if obj.tag == "token" then
+    fp:write(indent(lvl) .. id .. ":" .. rrr[lvl%7+1] .. tostring(obj["tag"])
+      .. clear .. " = "..b.."("..clear.."" .. table.concat({"id:", obj.id, ", line:", obj._line, ", value:>", obj.value, "<"})
+      ..b..")"..clear.."\n")
+  else
     do
       fp:write(indent(lvl) .. id .. ":" .. rrr[lvl%7+1] .. tostring(obj["tag"]) .. clear .. " = "..b.."{"..clear.."\n")
       for k,v in pairs(obj) do
@@ -37,8 +42,8 @@ function tagdump(obj,id,depth, lvl, unfold, fp)
       end
       fp:write(indent(lvl) ..b.."}"..clear.."\n")
     end
-  --end
-  fp:flush()
+    fp:flush()
+  end
 end
 
 function _dump(obj, depth, lvl, unfold, fp)

@@ -1,64 +1,478 @@
-
-function declaration_handler(tree, variant, typedefs)
-  local function decide_typedef(tree)
-    local function deep_lookup(tree, key)
-      for k,v in pairs(tree) do
-        if k == "declaration_specifiers" then
-          if deep_lookup(v, key) then return true end
-        elseif k == "storage_class_specifier" then
-          if deep_lookup(v, key) then return true end
-        elseif k == key then 
-          --dump(v,nil,nil,true)
-          return true
-        end
-      end
-      return false
-    end
-    local function get_name(tree)
-      for k,v in pairs(tree) do
-        --print("%s/%s\n", tree.tag, k)
-        local r = nil
-        if k == "init_declarator_list" then
-          r = get_name(v)
-        elseif k == "init_declarator" then
-          r = get_name(v)
-        elseif k == "declarator" then
-          r = get_name(v)
-        elseif k == "direct_declarator" then
-          r = get_name(v)
-        elseif k == "identifier" then
-          --dump(v,nil,nil,true)
-          r = v
-        end
-
-        if r then return r end
-      end
-      return nil
-    end
-
-    if deep_lookup(tree, "typedef") then
-      --dump(tree)
-      local r = get_name(tree)
-      --dump(r)
-      return r.value
-    end
-  end
-
-  if variant == 1 then
-    --dump(tree)
-  --[[elseif variant == 2 then
-    local r = decide_typedef(tree)
-    --dump(tree)
-    if r then
-      typedefs[r] = tree
-      --dump(typedefs, 0, 0)
-    end
-  elseif variant == 3 then
-    --dump(tree,nil,nil,nil,io.stderr)
-  else
-    error("not reached")]]
-  end
+local write = function(...)
+  io.stdout:write(unpack{...}, " ")
 end
+
+local function Class(name, meta)
+  meta.__index = function(self,k)
+    return getmetatable(self)[k]
+  end
+  meta.tag = name
+  
+  return setmetatable(
+    meta,
+    {
+      __call = function(self, ...)
+        local t = self.constructor(...)
+        return setmetatable(t, self)
+      end
+    }
+  )
+end
+
+local function include(tab, element)
+  table.insert(tab, element)
+  return tab
+end
+
+
+local function merge(tab, atab)
+  for i, v in ipairs(atab) do
+    table.insert(tab, v)
+  end
+  return tab
+end
+
+
+Environment = Class("Environment", {
+  constructor = function()
+    return {
+      structs = {},
+      types = {},
+      enums = {},
+    }
+  end,
+  struct_reg = function(self, id, decl)
+    local decl = {decl = decl}
+    self.structs[id] = decl
+    return decl
+  end,
+  struct_get = function(self, id)
+    local struct = self.structs[id]
+    if not struct then
+      return {unresolved_struct = id}
+      --error(format("undefined struct %s!", id))
+    end
+    return struct
+  end,
+
+  enum_reg = function(self, id, decl)
+    local decl = {decl = decl}
+    self.enums[id] = decl
+    return decl
+  end,
+  enum_get = function(self, id)
+    local enum = self.enums[id]
+    if not enum then
+      error(format("undefined enum %s!", id))
+    end
+    return enum
+  end,
+
+
+  type_reg = function(self, id, t)
+    local t = {t = t}
+    self.types[id] = t
+    return t
+  end,
+  set_ast = function(self, ast)
+    self.ast = ast
+    return ast
+  end,
+})
+
+Translation = Class("Translation", {
+
+})
+
+Declaration = Class("Declaration", {
+  Typefef = function(id, ctype)
+    return setmetatable({
+       id = id,
+       ctype = ctype,
+    }, Declaration)
+  end,
+  Plain = function(id, ctype, list)
+    return setmetatable({
+      id = id,
+      list = list,
+      ctype = ctype,
+    }, Declaration)
+  end,
+  Struct = function(struct)
+    return setmetatable({
+      struct = struct,
+    }, Declaration)
+  end,
+  Enum = function(enum)
+    return setmetatable({
+      enum = enum,
+    }, declaration)
+  end,
+
+})
+
+Type = Class("Type", {
+  Plain = function(spec)
+    return setmetatable({
+      spec = spec,
+    }, Type)
+  end,
+  Abstract = function(spec, abstract)
+    return setmetatable({
+      spec = spec,
+      abstract = abstract,
+    }, Type)
+  end,
+})
+
+Parameter = Class("Parameter", {
+  constructor = function(id, ctype)
+    return {
+      id = id,
+      ctype = ctype,
+    }
+  end,
+})
+
+
+Struct = Class("Struct", {
+  Anonymous = function(kind, decl)
+    return setmetatable({
+       anonymous = true,
+       kind = kind,
+       decl = decl,
+    }, Struct)
+  end,
+  Named = function(id, kind, decl)
+    return setmetatable({
+      id = id,
+      kind = kind,
+      decl = decl,
+    }, Struct)
+  end,
+  MakeHeadless = function(ctype)
+    if ctype.spec[1].specifier.tag == "Struct" then
+      return setmetatable({
+        headless = ctype.spec[1].specifier
+      }, Struct)
+    else
+      --dump(ctype)
+      error("anonymous member is not a struct?")
+    end
+  end,
+})
+
+Enum = Class("Enum", {
+  Anonymous = function(decl)
+    return setmetatable({
+       anonymous = true,
+       decl = decl,
+    }, Enum)
+  end,
+  Named = function(id, decl)
+    return setmetatable({
+      id = id,
+      decl = decl,
+    }, Enum)
+  end,
+
+})
+
+
+Initializer = Class("Initializer", {
+  Plain = function(ctype)
+    return setmetatable({
+      ctype = ctype,
+    }, Initializer)
+  end,
+  List = function(list)
+    return setmetatable({
+      list = list,
+    }, Initializer)
+  end,
+
+})
+
+Function = Class("Function", {
+  constructor = function(spec, ctype, id, params, statement)
+    return {
+      spec = spec,
+      ctype = ctype,
+      id = id,
+      params = params,
+      statement = statement,
+    }
+  end,
+  Abstract = function(spec, ctype, id, params)
+    return setmetatable({
+      spec = spec,
+      ctype = ctype,
+      id = id,
+      params = params,
+    }, Function)
+  end
+})
+
+Block = Class("Block", {
+  List = function(list)
+    return setmetatable({
+      list = list,
+    }, Block)
+  end,
+})
+
+Statement = Class("Statement", {
+  Jump = function(jump)
+    return setmetatable({
+      stmt = "jump",
+      jump = jump,
+    }, Statement)
+  end,
+  Expression = function(expr)
+    return setmetatable({
+      stmt = "expression",
+      expr = expr,
+    }, Statement)
+  end,
+  If = function(opened, clause, dostmt)
+    return setmetatable({
+      stmt = "if",
+      opened = opened,
+      clause = clause,
+      dostmt = dostmt,
+    }, Statement)
+  end,
+  IfElse = function(opened, clause, dostmt, elsestmt)
+    return setmetatable({
+      stmt = "elseif",
+      opened = opened,
+      clause = clause,
+      dostmt = dostmt,
+      elsestmt = elsestmt,
+    }, Statement)
+  end,
+  Compound = function(compound)
+    return setmetatable({
+      stmt = "compound",
+      compound = compound,
+    }, Statement)
+  end,
+  For = function(opened, clause, dostmt)
+    return setmetatable({
+      stmt = "for",
+      opened = opened,
+      clause = clause,
+      dostmt = dostmt,
+    }, Statement)
+  end,
+  While = function(opened, clause, dostmt)
+    return setmetatable({
+      stmt = "while",
+      opened = opened,
+      clause = clause,
+      dostmt = dostmt,
+    }, Statement)
+  end,
+  Label = function(label)
+    return setmetatable({
+      stmt = "label",
+      label = label,
+    }, Statement)
+  end,
+  Switch = function(switch)
+    return setmetatable({
+      stmt = "switch",
+      switch = switch,
+    }, Statement)
+  end,
+
+})
+
+Expression = Class("Expression", {
+  eq = function(self, b)
+    return setmetatable({op = 'eq', a = self, b = b}, Expression)
+  end,
+  shr = function(self, b)
+    return setmetatable({op = 'shr', a = self, b = b}, Expression)
+  end,
+  deref = function(self)
+    return setmetatable({op = 'deref', a = self}, Expression)
+  end,
+  cast = function(self, b)
+    return setmetatable({op = 'cast', a = self, b = b}, Expression)
+  end,
+  ls = function(self, b)
+    return setmetatable({op = 'ls', a = self, b = b}, Expression)
+  end,
+  land = function(self, b)
+    return setmetatable({op = 'land', a = self, b = b}, Expression)
+  end,
+  sizeof = function(self)
+    return setmetatable({op = 'sizeof', a = self}, Expression)
+  end,
+  ne = function(self, b)
+    return setmetatable({op = 'ne', a = self, b = b}, Expression)
+  end,
+  udec = function(self)
+    return setmetatable({op = 'udec', a = self}, Expression)
+  end,
+  shl = function(self, b)
+    return setmetatable({op = 'shl', a = self, b = b}, Expression)
+  end,
+  div = function(self, b)
+    return setmetatable({op = 'div', a = self, b = b}, Expression)
+  end,
+  ge = function(self, b)
+    return setmetatable({op = 'ge', a = self, b = b}, Expression)
+  end,
+  unp = function(self)
+    return setmetatable({op = 'unp', a = self}, Expression)
+  end,
+  mul = function(self, b)
+    return setmetatable({op = 'mul', a = self, b = b}, Expression)
+  end,
+  add_expr = function(self, b)
+    return setmetatable({op = 'add_expr', a = self, b = b}, Expression)
+  end,
+  bor_asgn = function(self, b)
+    return setmetatable({op = 'bor_asgn', a = self, b = b}, Expression)
+  end,
+  band = function(self, b)
+    return setmetatable({op = 'band', a = self, b = b}, Expression)
+  end,
+  cond = function(self, b, c)
+    return setmetatable({op = 'cond', a = self, b = b, c = c}, Expression)
+  end,
+  inc = function(self)
+    return setmetatable({op = 'inc', a = self}, Expression)
+  end,
+  band_asgn = function(self, b)
+    return setmetatable({op = 'band_asgn', a = self, b = b}, Expression)
+  end,
+  gt = function(self, b)
+    return setmetatable({op = 'gt', a = self, b = b}, Expression)
+  end,
+  shr_asgn = function(self, b)
+    return setmetatable({op = 'shr_asgn', a = self, b = b}, Expression)
+  end,
+  shl_asgn = function(self, b)
+    return setmetatable({op = 'shl_asgn', a = self, b = b}, Expression)
+  end,
+  bnot = function(self)
+    return setmetatable({op = 'bnot', a = self}, Expression)
+  end,
+  acc_ptrderef = function(self, b)
+    return setmetatable({op = 'acc_ptrderef', a = self, b = b}, Expression)
+  end,
+  mod_asgn = function(self, b)
+    return setmetatable({op = 'mod_asgn', a = self, b = b}, Expression)
+  end,
+  uinc = function(self)
+    return setmetatable({op = 'uinc', a = self}, Expression)
+  end,
+  addr = function(self)
+    return setmetatable({op = 'addr', a = self}, Expression)
+  end,
+  bxor_asgn = function(self, b)
+    return setmetatable({op = 'bxor_asgn', a = self, b = b}, Expression)
+  end,
+  lnot = function(self)
+    return setmetatable({op = 'lnot', a = self}, Expression)
+  end,
+  mul_asgn = function(self, b)
+    return setmetatable({op = 'mul_asgn', a = self, b = b}, Expression)
+  end,
+  par = function(self)
+    return setmetatable({op = 'par', a = self}, Expression)
+  end,
+  mod = function(self, b)
+    return setmetatable({op = 'mod', a = self, b = b}, Expression)
+  end,
+  unm = function(self)
+    return setmetatable({op = 'unm', a = self}, Expression)
+  end,
+  sub = function(self, b)
+    return setmetatable({op = 'sub', a = self, b = b}, Expression)
+  end,
+  div_asgn = function(self, b)
+    return setmetatable({op = 'div_asgn', a = self, b = b}, Expression)
+  end,
+  asgn = function(self, b)
+    return setmetatable({op = 'asgn', a = self, b = b}, Expression)
+  end,
+  lor = function(self, b)
+    return setmetatable({op = 'lor', a = self, b = b}, Expression)
+  end,
+  bor = function(self, b)
+    return setmetatable({op = 'bor', a = self, b = b}, Expression)
+  end,
+  sub_asgn = function(self, b)
+    return setmetatable({op = 'sub_asgn', a = self, b = b}, Expression)
+  end,
+  le = function(self, b)
+    return setmetatable({op = 'le', a = self, b = b}, Expression)
+  end,
+  bxor = function(self, b)
+    return setmetatable({op = 'bxor', a = self, b = b}, Expression)
+  end,
+  acc_deref = function(self, b)
+    return setmetatable({op = 'acc_deref', a = self, b = b}, Expression)
+  end,
+  dec = function(self)
+    return setmetatable({op = 'dec', a = self}, Expression)
+  end,
+  add_call = function(self, b)
+    return setmetatable({op = 'add_call', a = self, b = b}, Expression)
+  end,
+  add_asgn = function(self, b)
+    return setmetatable({op = 'add_asgn', a = self, b = b}, Expression)
+  end,
+  add_index = function(self)
+    return setmetatable({op = 'add_index', a = self}, Expression)
+  end,
+  add = function(self, b)
+    return setmetatable({op = 'add', a = self, b = b}, Expression)
+  end,
+
+  ------------------
+
+  List = function(self)
+    return setmetatable({list = {self}}, Expression)
+  end,
+
+  -- leaf constructors
+
+  Identifier = function(a)
+    return setmetatable({identifier = a}, Expression)
+  end,
+  Self = function(a)
+    return setmetatable({cself = a}, Expression)
+  end,
+  Constant = function(kind, a)
+    return setmetatable({constant = a, kind = kind}, Expression)
+  end,
+  Statement = function(a)
+    return setmetatable({statement = a}, Expression)
+  end,
+  TypeSizeof = function(a)
+    return setmetatable({typesizeof = a}, Expression)
+  end,
+
+})
+
+
+Parser = Class("Parser", {
+  constructor = function(src)
+    return {
+      src = input(src):read("*a"),
+      running = true,
+      pos = 1,
+      rt = {line = 1},
+      env = Environment()
+    }
+  end
+})
+
 
 local green = "[1;32m"
 local yellow = "[1;33m"
@@ -67,602 +481,500 @@ local blue = "[1;34m"
 local white = "[1;37m"
 local clear = "[0;m"
 
-type_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+local function line(lvl, ...)
+  if lvl then
+    return string.rep ("  ", lvl) .. string.format(unpack{...})
+  else
+    return string.format(unpack{...})
+  end
+end
+
+env_meta = {
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\ntype_meta: not found field " .. k)
+    end
   end,
-	__add = function(a, b)
-		for i,v in ipairs(b.t) do
-			a.t[#a.t+1] = v
-		end
-		return a
-	end,
-	__mul = function(a, b)
-		
-	end,
-	__tostring = function(self)
-		local ret = green .. "Type(" ..red
-		for i, v  in ipairs(self.t) do
-			if i>1 and i<#self.t then
-			ret = ret .. " "
-			end
-			if v.spec then
-				ret = ret .. v.spec.n
-			elseif v.ref then
-				local r = v.ref
-				ret = ret .. " "
-				if r.k == "pointer" then
-					for i=1, r.d do
-						ret = ret .. "*"
-					end
-				end
-			elseif v.array then
-				local r = v.array
-				ret = ret .. " "
-				if r.v then
-					ret = ret .. "[]"
-				else
-					ret = ret .. string.format("[%d]", r.n)
-				end
-			end
-		end
-		return ret ..green .. ")" .. clear
-	end,
-	last = function(self, create)
-		local l = self.t[#self.t]
-		if not l and create then
-			l = {}
-			table.insert(self.t, l)
-		end
-		return l
-	end,
-	
-	add_type_specifier = function(self, name)
-		local t = self:last(true)
-		t.spec = {n = name}
-		return self
-	end,
-	add_ref = function(self, kind, extra)
-		local t = self:last(true)
-		if not t.ref then
-			t.ref = {k = kind, d=1, e = extra}
-		else
-			t.ref.d = t.ref.d + 1
-		end
-		return self
-	end,
-	add_vararray = function(self)
-		local t = self:last(true)
-		t.array = {n = 0, v = true}
-		return self
-	end,
-	add_array = function(self, n)
-		local t = self:last(true)
-		t.array = {n = n, v = false}
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  struct_reg = function(self, idstr, struct)
+    self.structs[idstr] = struct
+    return struct
+  end,
+
+  type_reg = function(self, idstr, type)
+    --print(string.format("reg %s", idstr))
+    self.defs[idstr] = type
+    return true
+  end,
+  type_get = function(self, idstr)
+    --print(string.format("get %s", idstr))
+    return self.defs[idstr]
+  end,
+}
+
+--setmetatable(env, env_meta)
+
+type_meta = {
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\ntype_meta: not found field " .. k)
+    end
+  end,
+  tag = "type",
+  join = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+
+  last = function(self, create)
+    local l = rawget(self,#self)
+    if not l and create then
+      l = {}
+      table.insert(self, l)
+    end
+    return l
+  end,
+  
+  add_struct_specifier  = function(self, struct)
+    local t = self:last(true)
+    t.struct_spec = {struct = struct}
+    return self
+  end,
+  add_type_specifier = function(self, name)
+    local t = self:last(true)
+    t.spec = {n = name}
+    return self
+  end,
+  add_qualifier = function(self, name)
+    local t = self:last(true)
+    t.qual = {n = name}
+    return self
+  end,
+  add_ref = function(self, kind, extra)
+    local t = self:last(true)
+    if not t.ref then
+      t.ref = {k = kind, d=1, e = extra}
+    else
+      t.ref.d = t.ref.d + 1
+    end
+    return self
+  end,
+  add_vararray = function(self)
+    local t = self:last(true)
+    t.array = {n = 0, v = true}
+    return self
+  end,
+  add_array = function(self, n)
+    local t = self:last(true)
+    t.array = {n = n, v = false}
+    return self
+  end,
+  add_params = function(self, p)
+    local t = self:last(true)
+    t.params = p
+    return self
+  end,
+  add_type_ref = function(self, ref)
+    local t = self:last(true)
+    t.ref = { id = ref, ref = ref._ref }
+    return self
+  end,
 }
 
 setmetatable(type_meta, {
   __call = function()
-		local ret = {t = {}}
-		return setmetatable(ret, type_meta)
+    local ret = {}
+    return setmetatable(ret, type_meta)
   end,
 })
 
 param_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nparam_meta: not found field " .. k)
+    end
   end,
-	__add = function(a, b)
-		for i,v in ipairs(b) do
-			a[#a+1] = v
-		end
-		return a
-	end,
-	__tostring = function(self)
-		local ret = yellow .. "Param("
-		for i,v in ipairs(self) do
-			if i>1 then
-				ret = ret .. ", "
-			end
-			ret = ret .. tostring(v.t) .. " " .. v.id
-		end
-		return ret .. yellow .. ")" .. clear
-	end,
-	add_decl = function(self, t, id)
-		self[#self+1] = {t = t, id = id}
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  tag = "param",
+
+  next = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+
+  add_decl = function(self, t, id)
+    self[#self+1] = {t = t, id = id}
+    return self
+  end,
 }
 
 setmetatable(param_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, param_meta)
+    local ret = {}
+    return setmetatable(ret, param_meta)
   end,
 })
 
 
 decl_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\ndecl_meta: not found field " .. k)
+    end
   end,
-	__add = function(a, b)
-		for i,v in ipairs(b) do
-			a[#a+1] = v
-		end
-		return a
-	end,
-	__tostring = function(self)
-		local ret = blue .. "Decl(" .. tostring(self.t)
-		for i,v in ipairs(self) do
-			ret = ret .. ", "
-			ret = ret .. tostring(v.id)
-			if v.init then
-				ret = ret .. " = "
-				ret = ret .. tostring(v.init)
-			end
-		end
-		return ret .. blue .. ")" .. clear
-	end,
-	add_id = function(self, id, init)
-		self[#self+1] = {id = id, init = init}
-		return self
-	end,
-	add_type = function(self, t)
-		self.t = t
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  tag = "decl",
+
+  next = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+
+  add_id = function(self, id, init)
+    self[#self+1] = {id = id, init = init}
+    return self
+  end,
+  add_type = function(self, t)
+    self.t = t
+    return self
+  end,
+  add_stor_class = function(self, sc)
+    self.sc = sc
+    return self
+  end,
 }
 
 setmetatable(decl_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, decl_meta)
+    local ret = {}
+    return setmetatable(ret, decl_meta)
   end,
 })
 
 
-block_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+init_meta = {
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nblock_meta: not found field " .. k)
+    end
   end,
-	__add = function(a, b)
-		for i,v in ipairs(b) do
-			a[#a+1] = v
-		end
-		return a
-	end,
-	__tostring = function(self)
-		local ret = white .. "Block {\n"
-		for i,v in ipairs(self) do
-			if v.decl then
-				ret = ret .. tostring(v.decl) .. "\n"
-			else
-				ret = ret .. tostring(v.stmt) .. "\n"
-			end
-		end
-		return ret .. white .. "}" .. clear
-	end,
-	add_decl = function(self, decl)
-		self[#self+1] = {decl = decl}
-		return self
-	end,
-	add_stmt = function(self, stmt)
-		self[#self+1] = {stmt = stmt}
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  tag = "init",
+  add_expr = function(self, expr)
+    self[#self+1] = {expr = expr}
+    return self
+  end,
+}
+
+setmetatable(init_meta, {
+  __call = function()
+    local ret = {}
+    return setmetatable(ret, init_meta)
+  end,
+})
+
+block_meta = {
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nblock_meta: not found field " .. k)
+    end
+  end,
+  tag = "block",
+  join = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+
+  add_decl = function(self, decl)
+    self[#self+1] = {decl = decl}
+    return self
+  end,
+  add_stmt = function(self, stmt)
+    self[#self+1] = {stmt = stmt}
+    return self
+  end,
+  
+  finalize = function(self)
+    --dump(self)
+    --print(tostring(self))
+    return self
+  end,
 }
 
 setmetatable(block_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, block_meta)
+    local ret = {}
+    return setmetatable(ret, block_meta)
   end,
 })
 
 stmt_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nstmt_meta: not found field " .. k)
+    end
   end,
-	__tostring = function(self)
-		return "Stmt(" .. tostring(self.expr) .. ")"
-	end,
-	add_expr = function(self, expr)
-		self.expr = expr
-		return self
-	end,
+  tag = "stmt",
 
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  add_expr = function(self, expr)
+    self.expr = expr
+    return self
+  end,
+  add_if_clause = function(self, expr)
+    self.ic = {e = expr}
+    return self
+  end,
+  add_if_else = function(self, ds, es)
+    self.ic.ds = ds
+    self.ic.es = es
+    return self
+  end,
+  add_return = function(self, expr)
+    self.r = expr
+    return self
+  end,
+  add_for_clause = function(self, init, cond, act)
+    self.f = {init = init, cond = cond, act = act}
+    return self
+  end,
+  add_switch_clause = function(self, expr)
+    self.sw = {expr = expr, cases = {}}
+    return self
+  end,
+  add_case = function(self, case)
+    self.case = {case}
+    return self
+  end,
+  add_for_stmt = function(self, stmt)
+    self.f.s = stmt
+    return self
+  end,
+  gen_c_expr_stmt = function(expr)
+    return setmetatable({
+      closed = true,
+      expr = expr,
+    }, stmt_meta)
+  end,
+  gen_c_if_else_stmt = function(c, at, af)
+    return setmetatable({
+      closed = true,
+      if_else_clause = c,
+      act_true = at,
+      act_false = af,
+    }, stmt_meta)
+  end,
+  gen_c_compound_stmt = function(c)
+    return setmetatable({
+      closed = true,
+      compound = c,
+    }, stmt_meta)
+  end,
+  gen_c_for_stmt = function(c, l)
+    return setmetatable({
+      closed = true,
+      for_clause = c,
+      loop = l,
+    }, stmt_meta)
+  end,
+  gen_c_label_stmt= function(c, label, stmt)
+    return true
+  end,
+
+  gen_o_if_stmt = function(c, at)
+    return setmetatable({
+      closed = false,
+      if_clause = c,
+      act_true = at,
+    }, stmt_meta)
+  end,
+  gen_c_jump_stmt = function(j)
+    return setmetatable({
+      closed = true,
+      jump = j,
+    }, stmt_meta)
+  end,
 }
 
 setmetatable(stmt_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, stmt_meta)
+    local ret = {}
+    return setmetatable(ret, stmt_meta)
   end,
 })
 
 trans_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\ntrans_meta: not found field " .. k)
+    end
   end,
-	__add = function(a, b)
-		for i,v in ipairs(b) do
-			a[#a+1] = v
-		end
-		return a
-	end,
-	__tostring = function(self)
-		local ret = ""
-		for i, v in ipairs(self) do
-			if v.decl then
-				ret = ret .. tostring(v.decl) .. "\n"
-			elseif v.fun then	
-				ret = ret .. tostring(v.fun) .. "\n"
-			end
-		end
-		return ret
-	end,
-	add_decl = function(self, decl)
-		self[#self+1] = {decl = decl}
-		return self
-	end,
-	add_fun = function(self, fun)
-		self[#self+1] = {fun = fun}
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		print(tostring(self))
-		return self
-	end,
+  tag = "trans",
+  join = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+
+  add_decl = function(self, decl)
+    self[#self+1] = {decl = decl}
+    return self
+  end,
+  add_fun = function(self, fun)
+    self[#self+1] = {fun = fun}
+    return self
+  end,
 }
 
 setmetatable(trans_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, trans_meta)
+    local ret = {}
+    return setmetatable(ret, trans_meta)
   end,
 })
 
 func_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nfunc_meta: not found field " .. k)
+    end
   end,
-	__tostring = function(self)
-		local ret = tostring(self.ret) .. blue .. " Func " 
-		ret = ret .. tostring(self.param)  .. " "
-		ret = ret .. tostring(self.comp)
-		return ret .. clear
-	end,
-	add_ret = function(self, t)
-		self.ret = t
-		return self
-	end,
-	add_id = function(self, id)
-		self.id = id
-		return self
-	end,
-	add_param = function(self, param)
-		self.param = param
-		return self
-	end,
-	add_comp = function(self, comp)
-		self.comp = comp
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  tag = "func",
+
+  add_ret = function(self, t)
+    self.ret = t
+    return self
+  end,
+  add_id = function(self, id)
+    self.id = id
+    return self
+  end,
+  add_param = function(self, param)
+    self.param = param
+    return self
+  end,
+  add_comp = function(self, comp)
+    self.comp = comp
+    return self
+  end,
+  add_spec = function(self, spec)
+    self.spec = spec
+    return self
+  end,
 }
 
 setmetatable(func_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, func_meta)
+    local ret = {}
+    return setmetatable(ret, func_meta)
   end,
 })
 
 -------------------------------------
 
 struct_decl_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nstruct_decl_meta: not found field " .. k)
+    end
   end,
-	__add = function(a, b)
-		for i,v in ipairs(b) do
-			a[#a+1] = v
-		end
-		return a
-	end,
-	__tostring = function(self)
-		local ret = blue .. "StructDecl(" .. tostring(self.t)
-		for i,v in ipairs(self) do
-			ret = ret .. ", "
-			ret = ret .. tostring(v.id)
-			if v.d then
-				ret = ret .. " : "
-				ret = ret .. tostring(v.d)
-			end
-		end
-		return ret .. blue .. ")" .. clear
-	end,
-	add_id = function(self, id, depth)
-		self[#self+1] = {id = id, d = depth}
-		return self
-	end,
-	add_type = function(self, t)
-		self.t = t
-		return self
-	end,
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  tag = "struct_decl",
+  join = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+
+  add_id = function(self, id, depth)
+    self[#self+1] = {id = id, d = depth}
+    return self
+  end,
+  add_type = function(self, t)
+    self.t = t
+    return self
+  end,
 }
 
 setmetatable(struct_decl_meta, {
   __call = function()
-		local ret = {}
-		return setmetatable(ret, struct_decl_meta)
+    local ret = {}
+    return setmetatable(ret, struct_decl_meta)
   end,
 })
 
 struct_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
+  __index = function(self,k)
+    local r = getmetatable(self)[k]
+    if r then
+      return r
+    else
+      --error(debug.traceback().."\nstruct_meta: not found field " .. k)
+    end
   end,
-  __add = function(a, b)
-		for i,v in ipairs(b) do
-			a[#a+1] = v
-		end
-		return a
-	end,
-	__tostring = function(self)
-		local ret = ""
-		if self.k == "struct" then
-			ret = ret .. "Struct" 
-		elseif self.k == "union" then
-			ret = ret .. "Union"
-		end
-		if self.id then
-		ret = ret .. " " .. tostring(self.id)
-		end
-		ret = ret .. " {\n"
-		for i, v in ipairs(self) do
-			ret = ret .. tostring(v) .. "\n"
-		end
-		return ret .. "}"
-	end,
-	add_field = function(self, field)
-		self[#self + 1] = field
-		return self
-	end,
-	add_kind = function(self, kind)
-		self.k = kind
-		return self
-	end,
-	add_id = function(self, id)
-		self.id = id
-		return self
-	end,
-
-	
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
+  tag = "struct",
+  
+  next = function(a, b)
+    for i,v in ipairs(b) do
+      a[#a+1] = v
+    end
+    return a
+  end,
+  
+  add_field = function(self, field)
+    self[#self + 1] = field
+    return self
+  end,
+  add_kind = function(self, kind)
+    self.k = kind
+    return self
+  end,
+  add_id = function(self, id)
+    self.id = id
+    return self
+  end,
 }
 
 setmetatable(struct_meta, {
   __call = function(self)
-		local ret = {}
-		return setmetatable(ret, struct_meta)
+    local ret = {}
+    return setmetatable(ret, struct_meta)
   end,
 })
 
--------------------------------------
+------------------------------------------------------------------------
 
-expr_meta = {
-	__index = function(self,k)
-		return getmetatable(self)[k]
-  end,
-  tonumber = function(self)
-		if self.constant then
-			if
-				self.constant.t == "dec" or
-				self.constant.t == "oct" or
-				self.constant.t == "hex" then
-				return tonumber(self.constant.v)
-			end
-		end
-		error("not reached")
-  end,
-  __tostring = function(self)
-		if self.constant then
-			return tostring(self.constant.v)
-		elseif self.id then
-			return tostring(self.id)
-		elseif self.op then
-			local op = self.op
-			if op == "mul" then
-				return tostring(self.left) .. " * " .. tostring(self.right)
-			elseif op == "div" then
-				return tostring(self.left) .. " / " .. tostring(self.right)
-			elseif op == "mod" then
-				return tostring(self.left) .. " % " .. tostring(self.right)
-			elseif op == "add" then
-				return tostring(self.left) .. " + " .. tostring(self.right)
-			elseif op == "sub" then
-				return tostring(self.left) .. " - " .. tostring(self.right)
-			elseif op == "bor" then
-				return tostring(self.left) .. " | " .. tostring(self.right)
-			elseif op == "asgn" then
-				return tostring(self.left) .. " = " .. tostring(self.right)
-			else
-				dump(self)
-			end
-		elseif self.un then
-			local un = self.un
-			if un == "unm" then
-				return "-" .. tostring(self.right)
-			else
-				dump(self)
-			end
-		else
-			error("not reached")
-		end
-  end,
-  
-  __mul = function(a, b)
-		return setmetatable({
-			op = "mul",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  __div = function(a, b)
-		return setmetatable({
-			op = "mul",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  __add = function(a, b)
-		return setmetatable({
-			op = "add",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  bor = function(a, b)
-		return setmetatable({
-			op = "bor",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  band = function(a, b)
-		return setmetatable({
-			op = "band",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  bxor = function(a, b)
-		return setmetatable({
-			op = "bxor",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  lor = function(a, b)
-		return setmetatable({
-			op = "lor",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  land = function(a, b)
-		return setmetatable({
-			op = "land",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  gt = function(a, b)
-		return setmetatable({
-			op = "gt",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  ls = function(a, b)
-		return setmetatable({
-			op = "ls",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  le = function(a, b)
-		return setmetatable({
-			op = "le",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  ge = function(a, b)
-		return setmetatable({
-			op = "ge",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  asgn = function(a, b)
-		return setmetatable({
-			op = "asgn",
-			left = a,
-			right = b,
-		}, expr_meta)
-  end,
-  __unm = function(a)
-		return setmetatable({
-			un = "unm",
-			right = a,
-		}, expr_meta)
-  end, 
- 
-	finalize = function(self)
-		--dump(self)
-		--print(tostring(self))
-		return self
-	end,
-	gen_constant = function(t, v)
-		return setmetatable({
-			constant = {t = t, v = v},
-		}, expr_meta)
-	end,
-	gen_id = function(name)
-		return setmetatable({
-			id = name,
-		}, expr_meta)
-	end,
-}
