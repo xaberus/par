@@ -8,4 +8,8 @@ parser.c
 parser.h
 parser.lua
 parser.y
-
+lexer.lua
+u/
+parser.output
+libclex_parse.so
+*.swp

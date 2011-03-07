@@ -1,11 +1,38 @@
+
+local dump = dump
+local dofile = dofile
+local error = error
+local type = type
+local string = string
+local ipairs = ipairs
+local pairs = pairs
+local io = io
+local table = table
+local setmetatable = setmetatable
+local getmetatable = getmetatable
+local rawget = rawget
+local assert = assert
+local tostring = tostring
+local tonumber = tonumber
+local unpack = unpack
+local debug = debug
+local input = io.input
+local format = string.format
+
+local write = function(...)
+  io.stdout:write(unpack{...}, " ")
+end
+
+local print = print
+module("clex")
+
+
 local write = function(...)
   io.stdout:write(unpack{...}, " ")
 end
 
 local function Class(name, meta)
-  meta.__index = function(self,k)
-    return getmetatable(self)[k]
-  end
+  meta.__index = meta
   meta.tag = name
   
   return setmetatable(
@@ -18,20 +45,6 @@ local function Class(name, meta)
     }
   )
 end
-
-local function include(tab, element)
-  table.insert(tab, element)
-  return tab
-end
-
-
-local function merge(tab, atab)
-  for i, v in ipairs(atab) do
-    table.insert(tab, v)
-  end
-  return tab
-end
-
 
 Environment = Class("Environment", {
   constructor = function()
@@ -111,17 +124,270 @@ Declaration = Class("Declaration", {
 
 })
 
+local function qd(o)
+  for k, v in pairs(o) do
+    print(k, v)
+  end
+end
+
+local function indent(lvl)
+  return string.rep ("  ", lvl)
+end
+
+
 Type = Class("Type", {
+  constructor = function()
+    return {
+      complete = false,
+      flags = {
+      },
+      reg = nil,
+    }
+  end,
+  repr = function(self, lvl, fd)
+    if self.complete then
+      if self.reg == "i" then
+        fd:write(indent(lvl))
+        local first = true
+        for k, v in pairs(self.flags) do
+          if not first then
+            fd:write(" " .. k)
+          else
+            fd:write(k)
+            first = false
+          end
+        end
+        for k, v in pairs(self.con) do
+          if not first then
+            fd:write(" " .. k)
+          else
+            fd:write(k)
+            first = false
+          end
+        end
+      end
+
+      if self.pointer then
+        for i, v in ipairs(self.pointer) do
+          fd:write(" *")
+          for k, q in pairs(v) do
+            fd:write(" " .. k)
+          end
+        end
+      end
+
+      if self.array then
+        for i, p in ipairs(self.array) do
+          if p.size then
+            fd:write(format("[%u]", p.size))
+          elseif p.vararray then
+            fd:write("[]")
+          else
+            fd:write("<invalid>")
+          end
+        end
+      end
+    else
+      fd:write(indent(lvl) .. "<incomplete type>")
+    end
+    fd:write("\n") -- XXX:remove me
+  end,
+  set_int_flag = function(self, flag, ...)
+    assert(not self.reg or self.reg == "i")
+    if not self.reg then
+      self.reg = "i"
+      self.int = {}
+      self.con = {}
+    end
+
+    local function mkadd(int, con, flag)
+      if flag == "signed" then if true
+        and not int.unsigned
+          then con.signed = true else con.signed = nil end
+      elseif flag == "unsigned" then if true
+        and not int.signed
+          then con.unsigned = true else con.unsigned = nil end
+      elseif flag == "char" then if true
+        and not int.int
+        and not int.short
+        and not int.long
+          then con.char = true else con.char = nil end
+      elseif flag == "short" then if true
+        and not int.char
+        and not int.int
+        and not int.long
+          then con.short = true else con.short = nil end
+      elseif flag == "long" then if true
+        and not int.char
+        and not int.int
+        and not int.long
+          then con.long = true else con.long = nil end
+      elseif flag == "int" then if true
+        and not int.char
+        and not int.int
+          then con.int = true else con.int = nil end
+      else
+        assert(false, flag)
+      end
+    end
+
+    if flag == "signed" then
+      assert(not self.int.unsigned, "signed vs. unsigned")
+      self.int.signed = true
+    elseif flag == "unsigned" then
+      assert(not self.int.signed, "signed vs. unsigned")
+      self.int.unsigned = true
+    elseif flag == "char" then
+      assert(not self.int.short, "char vs. char")
+      assert(not self.int.short, "char vs. short")
+      assert(not self.int.long, "char vs. long")
+      assert(not self.int.int, "char vs. int")
+      self.int.char = true
+    elseif flag == "short" then
+      assert(not self.int.char, "short vs. char")
+      assert(not self.int.short, "short vs. short")
+      assert(not self.int.long, "short vs. long")
+      assert(not self.int.int, "short vs. int")
+      self.int.short = true
+    elseif flag == "long" then
+      assert(not self.int.char, "long vs. char")
+      assert(not self.int.short, "long vs. short")
+      assert(not self.int.long, "long vs. long")
+      self.int.long = true
+    elseif flag == "int" then
+      assert(not self.int.char, "int vs. char")
+      assert(not self.int.int, "int vs. int")
+      self.int.int = true
+    end
+
+    for i, v in ipairs({...}) do
+      mkadd(self.int, self.con, v)
+    end
+
+  end,
   Plain = function(spec)
-    return setmetatable({
-      spec = spec,
-    }, Type)
+    local self = Type()
+    for k, s in ipairs(spec) do
+      --dump(s)
+      if s.qualifier then
+        local q = s.qualifier
+        if q.tag == "token" then
+          local v = q.value
+          if v == "const" then
+            assert(not self.flags.volatile, "const vs. volatile")
+            self.flags.const = true
+          elseif v == "volatile" then
+            assert(not self.flags.const, "volatile vs. const")
+            self.flags.volatile = true
+          elseif v == "restrict" then
+            self.flags.restrict = true
+          else
+            assert(false)
+          end
+        else
+          assert(false)
+        end
+      elseif s.specifier then
+        local q = s.specifier
+        if q.tag == "token" then
+          local v = q.value
+          if v == "int" then
+            self:set_int_flag("int", "signed")
+          elseif v == "char" then
+            self:set_int_flag("char", "signed")
+          elseif v == "short" then
+            self:set_int_flag("short", "signed", "int")
+          elseif v == "long" then
+            self:set_int_flag("long", "signed", "int")
+          elseif v == "signed" then
+            self:set_int_flag("signed", "int")
+          elseif v == "unsigned" then
+            self:set_int_flag("unsigned", "int")
+          else
+            assert(false)
+          end
+        else
+          assert(false)
+        end
+      else
+        assert(false)
+      end
+    end
+
+    if self.reg == "i" then
+      local con = self.con
+      for k, v in pairs(self.int) do
+        con[k] = v
+      end
+      self.complete = true
+    else
+      assert(false)
+    end
+
+    return self
   end,
   Abstract = function(spec, abstract)
-    return setmetatable({
-      spec = spec,
-      abstract = abstract,
-    }, Type)
+    local self = Type.Plain(spec)
+
+    dump(abstract)
+
+    local body = {} -- pointer
+    local tail = {} -- array
+
+    if abstract.pointer then
+      local pointer = {}
+      for i, p in ipairs(abstract.pointer) do
+        local ref = {}
+        for k, q in ipairs(p.qualifiers) do
+          if q.tag == "token" then
+            local v = q.value
+            if v == "const" then
+              assert(not ref.volatile, "const vs. volatile")
+              ref.const = true
+            elseif v == "volatile" then
+              assert(not ref.const, "volatile vs. const")
+              ref.volatile = true
+            elseif v == "restrict" then
+              ref.restrict = true
+            else
+              assert(false)
+            end
+          else
+            assert(false)
+          end
+        end
+        table.insert(pointer, ref)
+      end
+      self.pointer = pointer
+    end
+
+    if abstract.abstract then
+      local array, param
+
+      for k, a in ipairs(abstract.abstract) do
+        if a.array or a.vararray then
+          array = array or {}
+          local pt = {}
+          if a.size then
+            pt.size = a.size:constant_eval()
+          elseif a.vararray then
+            -- assert(k == #abstract.abstract)
+            pt.vararray = true
+          else
+            assert(false)
+          end
+          table.insert(array, pt)
+        end
+      end
+
+      if array then
+        self.array = array
+      else
+        assert(false)
+      end
+    end
+
+    return self;
   end,
 })
 
@@ -458,6 +724,14 @@ Expression = Class("Expression", {
     return setmetatable({typesizeof = a}, Expression)
   end,
 
+
+  constant_eval = function(self)
+    if self.constant then
+      return tonumber(self.constant.value)
+    else
+      assert(false)
+    end
+  end
 })
 
 

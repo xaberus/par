@@ -256,6 +256,7 @@ local header = [[
   int yyparse(parser_t *);
   int yylex(YYSTYPE *, parser_t *);
   int yyerror(parser_t *, const char *);
+  int yyluabridge(parser_t * parser, const char * name, unsigned int argc, ...);
 }
 
 %pure_parser
@@ -284,6 +285,87 @@ local middle = [[
 
 local footer = [[
 %%
+
+int yyluabridge(parser_t * parser, const char * name, unsigned int argc, ...)
+{
+  lua_State * L = parser->L;
+  int ret = LUA_NOREF;
+  va_list ap;
+
+  lua_settop(L, 0); luaL_checkstack(L, argc + 1, "could not grow stack!");
+
+  if (yydebug)
+    fprintf(stderr, "in c-handler %s\n", name);
+
+  lua_getfield(L, LUA_GLOBALSINDEX, "clex");
+  lua_getfield(L, -1, name); // handler name 
+  lua_remove(L, -2);
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, parser->envref); // env
+
+  va_start(ap, argc);
+  for (unsigned int k = 0; k < argc; k++) {
+    int ref = va_arg(ap, int);
+    const char * an= va_arg(ap, char *);
+
+    if (ref != LUA_NOREF) {
+      lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+      if (lua_istable(L, -1)) {
+        if (yydebug > 1) {
+          lua_getfield(L, LUA_GLOBALSINDEX, "dump");
+          lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+          int e = lua_pcall(L, 1, 0, 0);
+          if (e) {
+            yyerror(parser, lua_tostring(parser->L, -1));
+            lua_pop(L, 1);
+          }
+        }
+        luaL_unref(L, LUA_REGISTRYINDEX, ref);
+      } else {
+        lua_pop(L, 1);
+        lua_pushnil(L);
+      }
+    } else {
+      if (yydebug > 1) {
+        fprintf(stderr, "nil argument for arg '%s'\n", an);
+      }
+      lua_pushnil(L);
+    }
+  }
+  va_end(ap);
+
+  if (yydebug > 1) {
+    fprintf(stderr, "---------------------\n");
+  }
+  int e = lua_pcall(L, 1 + argc, 1, 0); // env + args
+  if (e) {
+    yyerror(parser, lua_tostring(parser->L, -1));
+    lua_pop(L, 1);
+    return ret;
+  }
+
+  if (lua_isnil(L, -1)) {
+    yyerror(parser, "parser operation returned nil!");
+    return ret;
+  } else {
+    ret = luaL_ref(L, LUA_REGISTRYINDEX);
+    parser->astref = ret;
+
+    if (yydebug > 1) {
+      lua_getfield(L, LUA_GLOBALSINDEX, "dump");
+      lua_rawgeti(L, LUA_REGISTRYINDEX, ret);
+      int e = lua_pcall(L, 1, 0, 0);
+      if (e) {
+        yyerror(parser, lua_tostring(parser->L, -1));
+        lua_pop(L, 1);
+        return ret;
+      }
+    }
+  }
+  lua_settop(L, 0);
+
+  return ret;
+}
 
 int yylex(YYSTYPE * s, parser_t * parser) {
   int ret = 0;
@@ -384,7 +466,7 @@ int yyerror(parser_t * parser, const char * error) {
     lua_getfield(L, top+1, "_line");
     line = lua_tonumber(L, -1);
     luaL_addvalue(&b);
-    
+
     luaL_addstring(&b, ":");
 
     luaL_addstring(&b, "error: ");
@@ -522,10 +604,22 @@ static const struct luaL_reg clex_table[] = {
 
 extern int luaopen_libclex_parse(lua_State * L)
 {
-  int e = luaL_dostring(L, "require 'parser'\n");
+  int e;
+
+  e = luaL_dostring(L, "require 'handlers'\n");
   if (e) {
     return luaL_error(L, lua_tostring(L, -1));
   }
+  e = luaL_dostring(L, "require 'parser'\n");
+  if (e) {
+    return luaL_error(L, lua_tostring(L, -1));
+  }
+  e = luaL_dostring(L, "require 'lexer'\n");
+  if (e) {
+    return luaL_error(L, lua_tostring(L, -1));
+  }
+
+
 
   luaL_register(L, "clex.Parser", clex_table);
   return 1;
@@ -625,6 +719,14 @@ local function genstmpl4()
 ]]
 end
 
+local brtmpl = [[
+    $$ = yyluabridge(parser, "%s_%d", %d,%s
+        NULL);
+    if ($$ == LUA_NOREF) {
+      YYERROR;
+    }
+]]
+
 
 function gen_parser_def(name, productions, tokens, map, tokensmap)
   local fd = open(format("%s.y", name), "w")
@@ -665,7 +767,7 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
       write("  {\n")
 
       local n = #rule.parts
-
+--[[
       write("%s\n", genstmpl1(production.red.value, j, n + 1))
 
       for k, part in ipairs(rule.parts) do
@@ -678,6 +780,18 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
 
       write("%s\n", genstmpl3(n))
       write("%s\n", genstmpl4())
+--]]
+
+      local args = ""
+      for k, part in ipairs(rule.parts) do
+        if part.tag == "non_terminal" then
+          args = args .. format("\n        $%d, \"%s\",", k, part.value)
+        elseif part.tag == "token_definition" then
+          args = args .. format("\n        $%d, \"%s\",", k, part.token.value)
+        end
+      end
+
+      write(brtmpl, production.red.value, j, n, args)
 
       write("  }\n")
     end
@@ -753,13 +867,26 @@ local write = function(...)
   io.stdout:write(unpack{...}, " ")
 end
 
+local function include(tab, element)
+  table.insert(tab, element)
+  return tab
+end
+
+local function merge(tab, atab)
+  for i, v in ipairs(atab) do
+    table.insert(tab, v)
+  end
+  return tab
+end
+
+
 local print = print
 module("clex")
 
 ]]
 
   write("%s\n", header)
-  write("%s", input("handlers.inc.lua"):read("*a"))
+  --write("%s", input("handlers.inc.lua"):read("*a"))
 
   for i, production in ipairs(productions) do
     write("-- %s\n", production.red.value)

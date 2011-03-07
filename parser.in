@@ -30,6 +30,8 @@ tokens {
   UNSIGNED(nil, K"unsigned");
   VOID(nil, K"void");
 
+  NAMESPACE(nil, K"namespace");
+  DECLARE(nil, K"declare");
   INTERFACE(nil, K"interface");
   SELFTYPE(nil, K"selftype");
   SELF(nil, K"self");
@@ -838,11 +840,27 @@ external_declaration
   | declaration
     @L{return {decl = $1}}@
   | interface_definition
+  | namespace
+  ;
+
+namespace
+  : NAMESPACE IDENTIFIER L_BRACE R_BRACE SEMICOLON
+  | NAMESPACE IDENTIFIER L_BRACE namespace_declaration R_BRACE SEMICOLON
+  ;
+
+namespace_declaration
+  : external_declaration
+  | namespace_declaration external_declaration
   ;
 
 interface_definition
-  : INTERFACE IDENTIFIER L_PAREN type_name R_PAREN L_BRACE interface_definition_block R_BRACE SEMICOLON
+  : INTERFACE IDENTIFIER L_BRACE interface_declaration interface_definition_block R_BRACE SEMICOLON
   ;
+
+interface_declaration
+  : DECLARE struct_or_union_specifier SEMICOLON
+  ;
+
 
 interface_definition_block
   : method_definition_list
