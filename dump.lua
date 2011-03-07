@@ -9,7 +9,7 @@ for i=1,8 do
 end
 
 
-function tagdump(obj,id,depth, lvl, unfold, fp)
+function tagdump(obj, id, depth, lvl, unfold, fp)
   -- [[
   --if not dump_subtree(obj) then
   local green = "[1;32m"
@@ -23,7 +23,9 @@ function tagdump(obj,id,depth, lvl, unfold, fp)
       .. clear .. " = "..b.."("..clear.."" .. table.concat({"id:", obj.id, ", line:", obj._line, ", value:>", obj.value, "<"})
       ..b..")"..clear.."\n")
   else
-    do
+    if obj.repr then
+      obj:repr(lvl, fp)
+    else
       fp:write(indent(lvl) .. id .. ":" .. rrr[lvl%7+1] .. tostring(obj["tag"]) .. clear .. " = "..b.."{"..clear.."\n")
       for k,v in pairs(obj) do
         if k ~= "tag" and string.byte(k,1) ~= 95 then
