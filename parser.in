@@ -40,7 +40,12 @@ tokens {
 
   STRING_CONSTANT(2005) {
     local write = ...
-    write([[  (P'L'^-1 * P'"' * (P'\\' * P(1) + (1 - S'\\"'))^0 * P'"' * ws^0)^1  ]])
+    write([[
+      Ct((
+        (C(P'L'^-1 * P'"' * (P'\\' * P(1) + (1 - S'\\"'))^0 * P'"')
+          / function(str) return str:sub(2,#str-1) end)  * ws^0)^1) /
+        function(tab) return '"' .. table.concat(tab, "") .. '"' end
+    ]])
   };
 
   AUTO(nil, K"auto");

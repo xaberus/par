@@ -888,6 +888,7 @@ local type = type
 local collectgarbage = collectgarbage
 local concat = table.concat
 local error = error
+local table = table
 
 local dump = dump
 

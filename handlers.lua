@@ -283,7 +283,7 @@ Declaration = Class("Declaration", {
       if indent then
         return indent .. self.ctype:repr(indent) .. " " .. table.concat(tab, ", ") .. ";\n"
       else
-        return self.ctype:repr(indent) .. table.concat(tab, ", ") .. ";"
+        return self.ctype:repr(indent) .. " "  .. table.concat(tab, ", ") .. ";"
       end
     elseif self.struct then
       return indent .. self.struct:repr(indent) .. ";\n"
@@ -619,6 +619,9 @@ Type = Class("Type", {
           ret = ret .. k
           first = false
         end
+      end
+      if not first then
+        ret = ret .. " "
       end
       if self.reg == "i" then
         for k, v in pairs(self.int) do
@@ -1401,7 +1404,7 @@ Statement = Class("Statement", {
       dostmt(tab, self.dstmt, indent)
       tab[#tab] = " " -- replace newline
       tab[#tab+1] = "while"
-      tab[#tab+1] = "("
+      tab[#tab+1] = " ("
       tab[#tab+1] = self.expr:repr(nil)
       tab[#tab+1] = ")"
       tab[#tab+1] = ";\n"
@@ -1429,7 +1432,7 @@ Statement = Class("Statement", {
     elseif kind == "while" then
       tab[#tab+1] = indent
       tab[#tab+1] = "while"
-      tab[#tab+1] = "("
+      tab[#tab+1] = " ("
       tab[#tab+1] = self.expr:repr(nil)
       tab[#tab+1] = ")"
       dostmt(tab, self.dstmt, indent)
@@ -1925,7 +1928,11 @@ Expression = Class("Expression", {
       elseif op == "land" then
         return a:repr(indent) .. " && " .. b:repr(indent)
       elseif op == "sizeof" then
-        return "sizeof " .. a:repr(indent) 
+        if a.op and a.op == "par" then
+          return "sizeof" .. a:repr(indent) 
+        else
+          return "sizeof " .. a:repr(indent) 
+        end
       elseif op == "fsizeof" then
         return "sizeof(" .. a:repr(indent) .. ")"
       elseif op == "ne" then

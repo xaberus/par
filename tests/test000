@@ -3,7 +3,7 @@ typedef long size_t;
 int dprintf(int fd, char[] fmt, ...);
 void memset(void * p, char v, size_t s);
 void free(void * p);
-void *realloc(void *ptr, size_t size);
+void * realloc(void * ptr, size_t size);
 const void * NULL = 0;
 
 namespace trie {
@@ -46,18 +46,18 @@ namespace trie {
     ERR_SX_ATOM_END_GARBAGE
   };
 
-  typedef [void:void *, void *, size_t, size_t] * mem_realloc_t;
+  typedef [void : void *, void *, size_t, size_t] * mem_realloc_t;
 
   typedef struct {
     mem_realloc_t * realloc;
     void * ud;
   } mem_allocator_t;
 
-  void * plain_realloc(void *ud, void *ptr, size_t osize, long nsize);
+  void * plain_realloc(void * ud, void * ptr, size_t osize, long nsize);
   void * mem_alloc(const mem_allocator_t * a, size_t size);
   void * mem_realloc(const mem_allocator_t * a, void * data, size_t osize, size_t nsize);
   void mem_free(const mem_allocator_t * a, void * data);
-  void * plain_realloc(void *ud, void *ptr, size_t osize, size_t nsize)
+  void * plain_realloc(void * ud, void * ptr, size_t osize, size_t nsize)
   {
     (void) ud;
     (void) osize;
@@ -112,7 +112,7 @@ namespace trie {
     uint32 length;
     struct tnode_bank * prev;
     struct tnode_bank * next;
-    struct tnode [] nodes;
+    struct tnode[] nodes;
   };
 
   struct tnode_iter {
@@ -137,10 +137,10 @@ namespace trie {
 
   trie_t * trie_init(trie_t * trie, const mem_allocator_t * a);
   void trie_clear(trie_t * trie);
-  err_t trie_insert(trie_t * trie, uint16 len, const uint8 [len] word, uintptr_t data, int rep);
-  err_t trie_delete(trie_t * trie, uint16 len, const uint8 [len] word);
-  err_t trie_find(trie_t * trie, uint16 len, const uint8 [len] word, uintptr_t * data);
-  typedef [int:uint16, const uint8 [], uintptr_t, void *] * trie_forach_t;
+  err_t trie_insert(trie_t * trie, uint16 len, const uint8[len] word, uintptr_t data, int rep);
+  err_t trie_delete(trie_t * trie, uint16 len, const uint8[len] word);
+  err_t trie_find(trie_t * trie, uint16 len, const uint8[len] word, uintptr_t * data);
+  typedef [int : uint16, const uint8[], uintptr_t, void *] * trie_forach_t;
 
   err_t trie_foreach(trie_t * trie, trie_forach_t f, void * ud);
   struct tnode_tuple tnode_tuple(struct tnode * node, uint32 index)
@@ -336,7 +336,7 @@ namespace trie {
     dprintf(fd, " graph [rankdir = TD]\n");
     dprintf(fd, " node [fontsize = 12, fontname = \"monospace\"]\n");
     dprintf(fd, " edge []\n");
-    dprintf(fd, " \"trie\" [ shape = plaintext, label = <" "<table cellborder=\"1\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\">" "<tr><td bgcolor=\"red\">trie</td></tr>" "<tr><td port=\"f0\" bgcolor=\"gray\">%u</td></tr>" "</table>>]\n", trie.root);
+    dprintf(fd, " \"trie\" [ shape = plaintext, label = <<table cellborder=\"1\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\"><tr><td bgcolor=\"red\">trie</td></tr><tr><td port=\"f0\" bgcolor=\"gray\">%u</td></tr></table>>]\n", trie.root);
     if (trie.root) {
       trie_print_r(trie, &iter, trie.root, fd);
       dprintf(fd, " \"trie\":f0 . \"node%u\":f0;\n", trie.root);
@@ -344,7 +344,7 @@ namespace trie {
     dprintf(fd, "}\n");
   }
 
-  err_t trie_insert(trie_t * trie, uint16 len, const uint8 [len] word, uintptr_t data, int rep)
+  err_t trie_insert(trie_t * trie, uint16 len, const uint8[len] word, uintptr_t data, int rep)
   {
     int out = 4;
     uint32 i = 0, n = 0, rest;
@@ -403,7 +403,7 @@ namespace trie {
     }
     if (!out)
       return ERR_CORRUPTION;
-    struct tnode_tuple [(rest = len - i)] stride;
+    struct tnode_tuple[(rest = len - i)] stride;
     for (n = 0; n < rest; n++) {
       new = trie_mknode(trie);
       if (!new.index) {
@@ -485,7 +485,7 @@ namespace trie {
     return 0;
   }
 
-  err_t trie_delete(trie_t * trie, uint16 len, const uint8 [len] word)
+  err_t trie_delete(trie_t * trie, uint16 len, const uint8[len] word)
   {
     int out = 0;
     int32 i = 0;
@@ -499,7 +499,7 @@ namespace trie {
     struct {
       struct tnode_tuple tuple;
       struct tnode_tuple prev;
-    } [len] stack;
+    }[len] stack;
     memset(&stack, 0, sizeof(stack[0]) * len);
     if (trie.root) {
       tuple = tnode_iter_get(&iter, trie.root);
@@ -568,7 +568,7 @@ namespace trie {
     return 0;
   }
 
-  struct tnode_tuple trie_find_i(trie_t * trie, uint16 len, const uint8 [len] word)
+  struct tnode_tuple trie_find_i(trie_t * trie, uint16 len, const uint8[len] word)
   {
     int out = 0;
     uint32 i = 0;
@@ -601,7 +601,7 @@ namespace trie {
     return tnode_tuple(NULL, 0);
   }
 
-  err_t trie_find(trie_t * trie, uint16 len, const uint8 [len] word, uintptr_t * data)
+  err_t trie_find(trie_t * trie, uint16 len, const uint8[len] word, uintptr_t * data)
   {
     struct tnode_tuple tuple;
     if (!trie || !word)
@@ -674,11 +674,11 @@ namespace trie {
         go = 1;
       }
     }
-  out:
+out:
     mem_free(trie.a, word);
     mem_free(trie.a, stride);
     return ERR_SUCCESS;
-  alloc_error:
+alloc_error:
     if (word)
       mem_free(trie.a, word);
     if (stride)
