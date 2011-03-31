@@ -1,101 +1,185 @@
-function indent(lvl)
-  return string.rep ("  ", lvl)
-end
+function table_show(t, name, indent)
+  local cart    -- a container
+  local autoref  -- for self references
 
-local rrr = {}
+  local function isemptytable(t) return next(t) == nil end
 
-for i=1,8 do
-  rrr[i] = string.format("[1;%dm", 30+i-1)
-end
-
-
-function tagdump(obj, id, depth, lvl, unfold, fp)
-  -- [[
-  --if not dump_subtree(obj) then
-  local green = "[1;32m"
-  local yellow = "[1;33m"
-  local red = "[1;31m"
-  local b = "[1;34m"
-  local clear = "[0;m"
-
-  if obj.tag == "token" then
-    fp:write(indent(lvl) .. id .. ":" .. rrr[lvl%7+1] .. tostring(obj["tag"])
-      .. clear .. " = "..b.."("..clear.."" .. table.concat({"id:", obj.id, ", line:", obj._line, ", value:>", obj.value, "<"})
-      ..b..")"..clear.."\n")
-  else
-    if obj.repr then
-      obj:repr(lvl, fp)
+  local function basicSerialize (o)
+    local so = tostring(o)
+    if type(o) == "function" then
+      local info = debug.getinfo(o, "S")
+      -- info.name is nil because o is not a calling level
+      if info.what == "C" then
+        return string.format("%q", so .. ", C function")
+      else 
+        -- the information is defined through lines
+        return string.format("%q", so .. ", defined in (" ..
+           info.linedefined .. "-" .. info.lastlinedefined ..
+           ")" .. info.source)
+      end
+    elseif type(o) == "number" then
+      return so
     else
-      fp:write(indent(lvl) .. id .. ":" .. rrr[lvl%7+1] .. tostring(obj["tag"]) .. clear .. " = "..b.."{"..clear.."\n")
-      for k,v in pairs(obj) do
-        if k ~= "tag" and string.byte(k,1) ~= 95 then
-          if type(v) == "table" then
-            if v.tag and (not unfold) then
-              tagdump(v,k,depth,lvl+1,unfold, fp)
-            else
-              fp:write(indent(lvl+1) .. tostring(k) .. " = {\n")
-              _dump(v, depth, lvl+2, unfold, fp)
-              fp:write(indent(lvl+1) .. "}\n")
-            end
+      return string.format("%q", so)
+    end
+  end
+
+  local function addtocart (value, name, indent, saved, field)
+    indent = indent or ""
+    saved = saved or {}
+    field = field or name
+
+    cart = cart .. indent .. field
+
+    if type(value) ~= "table" then
+      cart = cart .. " = " .. basicSerialize(value) .. ";\n"
+    else
+      if saved[value] then
+        cart = cart .. " = {}; -- " .. saved[value] 
+                .. " (self reference)\n"
+        autoref = autoref ..  name .. " = " .. saved[value] .. ";\n"
+      else
+        saved[value] = name
+        if isemptytable(value) then
+          cart = cart .. " = {};\n"
+        elseif value.tag then
+          if value.tag == "token" then
+            cart = cart .. string.format(" = [1;32m%s<[1;31m%s[1;32m>[0;m%s\n", value.tag, value.value,
+              --table.concat({" (id:", value.id, ", line:", value._line,")"})
+              ""
+              )
+          elseif value.repr then
+            cart = cart .. string.format(" = [1;34m%s[0;m\n", value:repr(indent))
           else
-            fp:write(indent(lvl+1) .. tostring(k) .. " = >" .. tostring(v) .. "<\n")
+            if value.kind then
+              cart = cart .. string.format(" = [1;33m%s[0;m:[1;35m%s[0;m {\n", value.tag, value.kind)
+            else
+              cart = cart .. string.format(" = [1;33m%s[0;m {\n", value.tag)
+            end
+            for k, v in pairs(value) do
+              if k ~= "tag" and k ~= "kind" then
+                if type(k) == "string" and string.byte(k, 1) == 95 then
+                else
+                  k = basicSerialize(k)
+                  local fname = string.format("%s[%s]", name, k)
+                  field = string.format("[%s]", k)
+                  -- three spaces between levels
+                  addtocart(v, fname, indent .. "..", saved, field)
+                end
+              end
+            end
+            cart = cart .. indent .. "};\n"
           end
+        else
+          cart = cart .. " = {\n"
+          for k, v in pairs(value) do
+            k = basicSerialize(k)
+            local fname = string.format("%s[%s]", name, k)
+            field = string.format("[%s]", k)
+            -- three spaces between levels
+            addtocart(v, fname, indent .. "..", saved, field)
+          end
+          cart = cart .. indent .. "};\n"
         end
       end
-      fp:write(indent(lvl) ..b.."}"..clear.."\n")
+    end
+  end
+
+  name = name or "__unnamed__"
+  if type(t) ~= "table" then
+    return name .. " = " .. basicSerialize(t)
+  end
+  cart, autoref = "", ""
+  addtocart(t, name, indent)
+  return cart --.. autoref
+end
+
+function table_show_orig(t, name, indent)
+  local cart    -- a container
+  local autoref  -- for self references
+
+  local function isemptytable(t) return next(t) == nil end
+
+  local function basicSerialize (o)
+    local so = tostring(o)
+    if type(o) == "function" then
+      local info = debug.getinfo(o, "S")
+      -- info.name is nil because o is not a calling level
+      if info.what == "C" then
+        return string.format("%q", so .. ", C function")
+      else 
+        -- the information is defined through lines
+        return string.format("%q", so .. ", defined in (" ..
+           info.linedefined .. "-" .. info.lastlinedefined ..
+           ")" .. info.source)
+      end
+    elseif type(o) == "number" then
+      return so
+    else
+      return string.format("%q", so)
+    end
+  end
+
+  local function addtocart (value, name, indent, saved, field)
+    indent = indent or ""
+    saved = saved or {}
+    field = field or name
+
+    cart = cart .. indent .. field
+
+    if type(value) ~= "table" then
+      cart = cart .. " = " .. basicSerialize(value) .. ";\n"
+    else
+      if saved[value] then
+        cart = cart .. " = {}; -- " .. saved[value] 
+                .. " (self reference)\n"
+        autoref = autoref ..  name .. " = " .. saved[value] .. ";\n"
+      else
+        saved[value] = name
+        if isemptytable(value) then
+          cart = cart .. " = {};\n"
+        else
+          cart = cart .. " = {\n"
+          for k, v in pairs(value) do
+            k = basicSerialize(k)
+            local fname = string.format("%s[%s]", name, k)
+            field = string.format("[%s]", k)
+            -- three spaces between levels
+            addtocart(v, fname, indent .. "  ", saved, field)
+          end
+          cart = cart .. indent .. "};\n"
+        end
+      end
+    end
+  end
+
+  name = name or "__unnamed__"
+  if type(t) ~= "table" then
+    return name .. " = " .. basicSerialize(t)
+  end
+  cart, autoref = "", ""
+  addtocart(t, name, indent)
+  return cart .. autoref
+end
+
+
+function dump(obj, full, fp, indent, name)
+  if not name then name = "root" end
+  if not fp then fp = io.stdout end 
+  if fp == true then
+    if full then
+      return table_show_orig(obj, name, indent)
+    else
+      return table_show(obj, name, indent)
+    end
+
+  else
+    if full then
+      fp:write(table_show_orig(obj, name, indent))
+    else
+      fp:write(table_show(obj, name, indent))
     end
     fp:flush()
   end
 end
 
-function _dump(obj, depth, lvl, unfold, fp)
-  if type(obj) == "table" then
-    if obj.tag then
-      tagdump(obj,"root",depth,lvl,unfold, fp)
-    else
-      if lvl == 1 then
-        fp:write("{\n")
-      end
-
-      for k,v in pairs(obj) do
-        if type(v) == "table" then
-          if depth and depth == lvl then
-            fp:write(indent(lvl) .. tostring(k) .. " table\n")
-          else
-            if v.tag and (not unfold) then
-              tagdump(v,k,depth,lvl, unfold, fp)
-            else
-              if type(k) == "number" then
-                fp:write(indent(lvl) .. string.format("%d", k).. " = {\n")
-              else
-                fp:write(indent(lvl) .. tostring(k) .. " = {\n")
-              end
-              _dump(v,depth, lvl+1, unfold, fp)
-              fp:write(indent(lvl) .. "}\n")
-            end
-          end
-        else
-          fp:write(indent(lvl) .. tostring(k) .. " = " .. tostring(v) .. "\n")
-        end
-      end
-
-      if lvl == 1 then
-        fp:write("}\n")
-      end
-    end
-  else
-      fp:write(indent(lvl) .. tostring(obj) .. "\n")
-  end
-
-  return obj
-end
-
-function dump(obj, depth, lvl, unfold, fp)
-  if not lvl then lvl = 1 end
-  if not fp then fp = io.stdout end 
-  
-  fp:write(">>>>>>>>>>>>>>>>>>>>>\n")
-  _dump(obj, depth, lvl, unfold, fp)
-  fp:write("<<<<<<<<<<<<<<<<<<<<<\n")
-  fp:flush()
-end

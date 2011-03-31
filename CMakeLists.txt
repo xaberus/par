@@ -18,7 +18,7 @@ set(CMAKE_SHARED_LIBRARY_C_FLAGS "-Wl,--no-undefined")
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/parser.y ${CMAKE_CURRENT_BINARY_DIR}/parser.lua
-  COMMAND /usr/bin/lua generator.lua  ${PAR_SOURCE_DIR}/parser.in
+  COMMAND /usr/bin/luajit generator.lua  ${PAR_SOURCE_DIR}/parser.in
   DEPENDS parser.in generator.lua
 )
 
@@ -44,10 +44,10 @@ include_directories(${libnih_SOURCE_DIR})
 #  test
 #)
 
-#target_link_libraries(par m lua)
+#target_link_libraries(par m luajit-5.1)
 
 add_library(clex_parse SHARED
   ${BISON_parser_OUTPUTS}
 )
 
-target_link_libraries(clex_parse m lua)
+target_link_libraries(clex_parse m luajit-5.1)
