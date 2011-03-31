@@ -1253,9 +1253,17 @@ function_definition
       return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7}
     }
 
-  | type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON
-  | function_specifier_list type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON
-  | type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON
-  | function_specifier_list type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON
+  | type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON {
+      return {funcdef = $2, rctype = $1, list = {}, block = $5, forward = true}
+    }
+  | function_specifier_list type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON {
+      return {spec = $1, funcdef = $3, rctype = $2, list = {}, block = $6, forward = true}
+    }
+  | type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON {
+      return {funcdef = $2, rctype = $1, list = $4, block = $6, forward = true}
+    }
+  | function_specifier_list type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON {
+      return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7, forward = true}
+    }
   ;
 

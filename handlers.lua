@@ -25,7 +25,7 @@ end
 
 local function tassert(token, cond, message, ...)
   if not cond then
-    error({token, string.format(message, ...)})
+    error({token, message and string.format(message, ...) or "AST/nr"})
   end
   return cond
 end
@@ -305,6 +305,30 @@ local function indent(lvl)
   return string.rep ("  ", lvl)
 end
 
+local function deepcompare(t1,t2,ignore_mt)
+    local ty1 = type(t1)
+    local ty2 = type(t2)
+    if ty1 ~= ty2 then return false end
+    -- non-table types can be directly compared
+    if ty1 ~= 'table' and ty2 ~= 'table' then return t1 == t2 end
+    -- as well as tables which have the metamethod __eq
+    local mt = getmetatable(t1)
+    if not ignore_mt and mt and mt.__eq then return t1 == t2 end
+
+    if t1.tag == "token" and t2.tag == "token" then
+      return t1.value == t2.value
+    end
+
+    for k1,v1 in pairs(t1) do
+        local v2 = t2[k1]
+        if v2 == nil or not deepcompare(v1,v2) then return false end
+    end
+    for k2,v2 in pairs(t2) do
+        local v1 = t1[k2]
+        if v1 == nil or not deepcompare(v1,v2) then return false end
+    end
+    return true
+end
 
 Type = Class("Type", {
   set_int_flag = function(self, flag, ...)
@@ -316,33 +340,31 @@ Type = Class("Type", {
     end
 
     local function mkadd(int, con, flag)
-      if flag == "signed" then if true
-        and not int.unsigned
-          then con.signed = true else con.signed = nil end
-      elseif flag == "unsigned" then if true
-        and not int.signed
-          then con.unsigned = true else con.unsigned = nil end
-      elseif flag == "char" then if true
-        and not int.int
-        and not int.short
-        and not int.long
-          then con.char = true else con.char = nil end
-      elseif flag == "short" then if true
-        and not int.char
-        and not int.int
-        and not int.long
-          then con.short = true else con.short = nil end
-      elseif flag == "long" then if true
-        and not int.char
-        and not int.int
-        and not int.long
-          then con.long = true else con.long = nil end
-      elseif flag == "int" then if true
-        and not int.char
-        and not int.int
-          then con.int = true else con.int = nil end
+      if not int[flag] then
+        con[flag] = true
       else
-        tassert(nil, false, flag)
+        con[flag] = nil
+      end
+
+      if false then
+      elseif flag == "unsigned" then
+        con["signed"] = nil
+      elseif flag == "signed" then
+        con["unsigned"] = nil
+      elseif flag == "char" then
+        con["int"] = nil
+        con["short"] = nil
+        con["long"] = nil
+      elseif flag == "short" then
+        con["char"] = nil
+        con["int"] = nil
+        con["long"] = nil
+      elseif flag == "long" then
+        con["char"] = nil
+        con["short"] = nil
+      elseif flag == "int" then
+        con["char"] = nil
+        con["short"] = nil
       end
     end
 
@@ -362,7 +384,6 @@ Type = Class("Type", {
       tassert(nil, not self.int.char, "short vs. char")
       tassert(nil, not self.int.short, "short vs. short")
       tassert(nil, not self.int.long, "short vs. long")
-      tassert(nil, not self.int.int, "short vs. int")
       self.int.short = true
     elseif flag == "long" then
       tassert(nil, not self.int.char, "long vs. char")
@@ -375,9 +396,11 @@ Type = Class("Type", {
       self.int.int = true
     end
 
+    mkadd(self.int, self.con, flag)
     for i, v in ipairs({...}) do
       mkadd(self.int, self.con, v)
     end
+    --dump({self.int, self.con, "#####", flag, ...})
 
   end,
 
@@ -465,6 +488,7 @@ Type = Class("Type", {
             if ref then
               self.reg = "r"
               self.ref = ref
+              self.id = s
             else
               dump(tree, true)
               tassert(nil, false)
@@ -587,17 +611,17 @@ Type = Class("Type", {
   repr = function(self, indent)
     local ret = ""
     if self.complete then
-      if self.reg == "i" then
-        local first = true
-        for k, v in pairs(self.qual) do
-          if not first then
-            ret = ret .. " " .. k
-          else
-            ret = ret .. k
-            first = false
-          end
+      local first = true
+      for k, v in pairs(self.qual) do
+        if not first then
+          ret = ret .. " " .. k
+        else
+          ret = ret .. k
+          first = false
         end
-        for k, v in pairs(self.con) do
+      end
+      if self.reg == "i" then
+        for k, v in pairs(self.int) do
           if not first then
             ret = ret .. " " .. k
           else
@@ -610,7 +634,7 @@ Type = Class("Type", {
       elseif self.reg == "x" then
         ret = ret .. self.fixed.value
       elseif self.reg == "r" then
-        ret = ret .. "<tref>"
+        ret = ret .. self.id.value
       elseif self.reg == "c" then
         local tab = {}
         for k, v in ipairs(self.list) do
@@ -661,6 +685,36 @@ Type = Class("Type", {
 
     return ret
   end, --]]
+  compare = function(a, b)
+    --dump({a,b}, true, nil, nil, "inref")
+
+    if a.reg == "r" then
+      a = a.ref.ctype
+    end
+    if b.reg == "r" then
+      b = b.ref.ctype
+    end
+
+    --dump({a,b}, true, nil, nil, "outref")
+    --dump({a,b}, nil, nil, nil, "outref")
+
+    if a.complete ~= b.complete then return false end
+    if a.abs ~= b.abs then return false end
+
+    if not deepcompare(a.qual, b.qual) then return false end
+
+    if a.reg == "i" then
+      if not deepcompare(a.con, b.con) then return false end
+    end
+
+    if a.abs then
+      if not deepcompare(a.pointer, b.pointer) then return false end
+      if not deepcompare(a.array, b.array) then return false end
+    end
+
+    if a.reg ~= b.reg then return false end
+    return true
+  end,
 })
 
 Parameter = Class("Parameter", {
@@ -897,10 +951,26 @@ Enum = Class("Enum", {
 Designation = Class("Designation", {
   constructor = function(env, tree)
     --dump(tree, nil, nil, nil, "init")
-    return {}
+    local self = {}
+    for k, v in ipairs(tree) do
+      if v.iden then
+        self[#self+1] = {name = v.iden}
+      elseif v.index then
+        self[#self+1] = {name = Expression(env, index)}
+      end
+    end
+    return self
   end,
   repr = function(self, indent)
-    return "<dginator>"
+    local tab = {}
+    for k, v in ipairs(self) do
+      if v.name then
+        tab[#tab+1] = "." .. v.name.value
+      elseif b.index then
+        tab[#tab+1] = "[" .. v.index:repr(indent) .. "]"
+      end
+    end
+    return table.concat(tab, " = ")
   end,
 })
 
@@ -939,7 +1009,7 @@ Initializer = Class("Initializer", {
           tab[#tab+1] = " = "
         end
         tab[#tab+1] = v.expr:repr(indent2)
-      tab[#tab+1] = "\n"
+        tab[#tab+1] = ",\n"
       end
       tab[#tab+1] = indent
       tab[#tab+1] = "}"
@@ -1027,14 +1097,49 @@ Function = Class("Function", {
       params[#params+1] = param
     end
 
-    local benv = penv:child("block")
+    local function tree_check_fn_proto(fna, fnb)
+      if fna.id.value ~= fnb.id.value then return false end
+      if not Type.compare(fna.rctype, fnb.rctype) then return false end
+      if #fna.params ~= #fnb.params then return false end
+      params = fna.params
+      for k, v in ipairs(params) do
+        local a = fna.params[k]
+        if not a then return false end
+        local b = fnb.params[k]
+        if not b then return false end
+        if not Type.compare(a.ctype, b.ctype) then return false end
+      end
+      if fna.id.rctype ~= fnb.id.rctype then return false end
 
-    local self = {rctype = rctype, id = tree.funcdef, params = params}
-    env:sym_reg(self.id.value, func)
+      return true
+    end
 
-    local block = Block(benv, tree.block)
+    local self
 
-    self.block = block
+    if tree.forward then
+      self = {rctype = rctype, id = tree.funcdef, params = params, forward = true}
+      env:sym_reg(tree.funcdef.value, self)
+    else
+      local benv = penv:child("block")
+      local ref = env:sym_get(tree.funcdef.value)
+      if ref then
+        tassert(tree.funcdef, ref.sym.forward, "attempt to redefine function '%s'", tree.funcdef.value)
+        self = {rctype = rctype, id = tree.funcdef, params = params}
+
+        tassert(tree.funcdef, tree_check_fn_proto(ref.sym, self), "forward declaration of wrong type")
+
+        ref.ref = self
+      else
+        self = {rctype = rctype, id = tree.funcdef, params = params}
+        env:sym_reg(self.id.value, self)
+      end
+      local block = Block(benv, tree.block)
+      self.block = block
+    end
+
+    if tree.list.vararg then
+      self.vararg = true
+    end
 
     return self
   end,
@@ -1043,52 +1148,63 @@ Function = Class("Function", {
     local prt = {}
     local tab = {}
 
-    if self.block and #self.block then
-      if self.spec then
-        for k, v in ipairs(self.spec) do
-          --spec[#spec+1] = v
-        end
-        tab[#tab+1] = table.concat(spec, " ")
-        tab[#tab+1] = " "
-      end
+    tab[#tab+1] = indent
 
-      tab[#tab+1] = self.rctype:repr(indent)
+    if self.spec then
+      for k, v in ipairs(self.spec) do
+        --spec[#spec+1] = v
+      end
+      tab[#tab+1] = table.concat(spec, " ")
       tab[#tab+1] = " "
+    end
 
-      tab[#tab+1] = self.id.value
+    tab[#tab+1] = self.rctype:repr(indent)
+    tab[#tab+1] = " "
 
-      for k, v in ipairs(self.params) do
-        prt[#prt+1] = v:repr(indent)
-      end
+    tab[#tab+1] = self.id.value
 
-      tab[#tab+1] = "(" .. table.concat(prt, ", ") .. ")"
+    for k, v in ipairs(self.params) do
+      prt[#prt+1] = v:repr(indent)
+    end
+
+    if self.vararg then
+      prt[#prt+1] = "..."
+    end
+
+    tab[#tab+1] = "(" .. table.concat(prt, ", ") .. ")"
+
+
+    if self.block and #self.block then
       tab[#tab+1] = "\n"
       tab[#tab+1] = indent
       tab[#tab+1] = self.block:repr(indent)
       tab[#tab+1] = "\n"
-
+      return table.concat(tab, "")
+    elseif self.forward then
+      tab[#tab+1] = ";"
       return table.concat(tab, "")
     else
       dump(self, true)
       tassert(nil, false)
     end
   end,
-  Abstract = function(spec, ctype, id, params)
-    return setmetatable({
-      spec = spec,
-      ctype = ctype,
-      id = id,
-      params = params,
-    }, Function)
-  end,
 })
 
 Namespace = Class("Namespace", {
-  constructor = function(decls, environment) 
-    return {
-      decls = decls,
-      _environment = environment,
-    }
+  constructor = function(env, tree)
+    --dump(tree, nil, nil, nil, "stmt")
+    local env = env:child("ns")
+    local self = {}
+
+    self.env = env
+
+    self.id = tree.ns
+    self.src = Source(env, tree.list)
+
+    return self
+  end,
+  repr = function(self, indent)
+    return indent .. "namespace " .. self.id.value .. " {\n" .. self.src:repr(indent .. "  ") .. indent .. "};\n"
   end,
 })
 
@@ -1194,7 +1310,9 @@ Statement = Class("Statement", {
       self.kind = "cont"
       self.env = le
     elseif tree.label then
-      self = env:label_get_r(tree.label.value)
+      self.kind = "label"
+      self.ref = env:label_get_r(tree.label.value)
+      self.id = tree.label
     elseif tree.gotostmt then
       self.kind = "goto"
       self.id = tree.gotostmt
@@ -1213,13 +1331,16 @@ Statement = Class("Statement", {
       if k ~= "block" and k~= "empty" then
         tab[#tab+1] = "\n"
         tab[#tab+1] = dstmt:repr(indent .. "  ")
+        return false
       else
         if k == "empty" then
           tab[#tab+1] = ";\n"
+          return false
         elseif k == "block" then
           tab[#tab+1] = " "
           tab[#tab+1] = dstmt.block:repr(indent)
           tab[#tab+1] = "\n"
+          return true
         end
       end
     end
@@ -1232,16 +1353,44 @@ Statement = Class("Statement", {
       tab[#tab+1] = self.expr:repr(indent)
       tab[#tab+1] = ")"
       dostmt(tab, self.dstmt, indent)
+
     elseif kind == "ifelse" then
-      tab[#tab+1] = indent
-      tab[#tab+1] = "if"
-      tab[#tab+1] = " ("
-      tab[#tab+1] = self.expr:repr(indent)
-      tab[#tab+1] = ")"
-      dostmt(tab, self.dstmt, indent)
-      tab[#tab+1] = indent
-      tab[#tab+1] = "else"
-      dostmt(tab, self.estmt, indent)
+      local cl = self
+      local k
+      while cl do
+        if not k then
+          tab[#tab+1] = indent
+        else
+          tab[#tab+1] = " "
+        end
+        tab[#tab+1] = "if"
+        tab[#tab+1] = " ("
+        tab[#tab+1] = cl.expr:repr(indent)
+        tab[#tab+1] = ")"
+        if dostmt(tab, cl.dstmt, indent) then
+          tab[#tab] = " "
+        else
+          tab[#tab+1] = indent
+        end
+        tab[#tab+1] = "else"
+        k = cl.estmt.kind
+        if k == "if" then
+          local ie = cl.estmt
+          tab[#tab+1] = " "
+          tab[#tab+1] = "if"
+          tab[#tab+1] = " ("
+          tab[#tab+1] = ie.expr:repr(indent)
+          tab[#tab+1] = ")"
+          dostmt(tab, ie.dstmt, indent)
+          break;
+        elseif k == "ifelse" then
+          cl = cl.estmt
+        else
+          dostmt(tab, cl.estmt, indent)
+          break;
+        end
+      end
+
     elseif kind == "expr" then
       tab[#tab+1] = indent
       tab[#tab+1] = self.expr:repr(indent)
@@ -1537,7 +1686,7 @@ Expression = Class("Expression", {
     elseif tree.sizeof then
       return setmetatable({op = 'sizeof', a = Expression(env, tree.sizeof)}, Expression)
     elseif tree.fsizeof then
-      return setmetatable({op = 'sizeof', a = Type(env, tree.fsizeof)}, Expression)
+      return setmetatable({op = 'fsizeof', a = Type(env, tree.fsizeof)}, Expression)
 
     elseif tree.cond then
       return E.cond(env, tree.cond, tree.texpr, tree.fexpr)
@@ -1770,12 +1919,14 @@ Expression = Class("Expression", {
       elseif op == "deref" then
         return "*" .. a:repr(indent)
       elseif op == "cast" then
-        return "(" .. a:repr(indent) .. ") " .. b:repr(indent)
+        return "(" .. b:repr(indent) .. ") " .. a:repr(indent)
       elseif op == "ls" then
         return a:repr(indent) .. " < " .. b:repr(indent)
       elseif op == "land" then
         return a:repr(indent) .. " && " .. b:repr(indent)
       elseif op == "sizeof" then
+        return "sizeof " .. a:repr(indent) 
+      elseif op == "fsizeof" then
         return "sizeof(" .. a:repr(indent) .. ")"
       elseif op == "ne" then
         return a:repr(indent) .. " != " .. b:repr(indent)
@@ -1809,8 +1960,6 @@ Expression = Class("Expression", {
         return a:repr(indent) .. " <<= " .. b:repr(indent)
       elseif op == "bnot" then
         return "~" .. a:repr(indent)
-      elseif op == "acc_ptrderef" then
-        -- noop?
       elseif op == "mod_asgn" then
         return a:repr(indent) .. " %= " .. b:repr(indent)
       elseif op == "addr" then
@@ -1866,6 +2015,34 @@ Expression = Class("Expression", {
 })
 
 
+Source = Class("Source", {
+  constructor = function(env, tree)
+    local self = {}
+    for k, v in ipairs(tree) do
+      if v.funcdef then
+        self[#self+1] = Function(env, v)
+      elseif v.decl or v.tdef or v.enum or v.struct or v.union then
+        self[#self+1] = Declaration(env, v)
+      elseif v.ns then
+        self[#self+1] = Namespace(env, v)
+      else
+        dump(v)
+        assert(false, "AST/nr")
+      end
+    end
+    return self
+  end,
+  repr = function(self, indent)
+    local tab = {}
+
+    for k, v in ipairs(self) do
+      tab[#tab+1] = v:repr(indent)
+    end
+
+    return table.concat(tab, "\n")
+  end,
+})
+
 Parser = Class("Parser", {
   constructor = function(src)
     local self = {
@@ -1881,6 +2058,4 @@ Parser = Class("Parser", {
     return self
   end
 })
-
-
 
