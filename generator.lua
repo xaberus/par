@@ -306,9 +306,11 @@ int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int ar
   if (yydebug)
     fprintf(stderr, "in c-handler %s\n", name);
 
-  lua_getfield(L, LUA_GLOBALSINDEX, "clex");
-  lua_getfield(L, -1, name); // handler name 
-  lua_remove(L, -2);
+  lua_getfield(L, LUA_ENVIRONINDEX, name); // handler name 
+  if (lua_isnil(L, -1)) {
+    yyerror(parser, "no handler");
+    return LUA_NOREF;
+  }
 
   lua_rawgeti(L, LUA_REGISTRYINDEX, parser->envref); // env
 
@@ -573,68 +575,62 @@ static int l_parse (lua_State *L) {
   luaL_checktype(L, 1, LUA_TTABLE);
 
   lua_getfield(L, 1, "tag");
-  const char * tag = luaL_checkstring(L, -1);
+  const char * tag = lua_tostring(L, -1);
 
   if (strncmp(tag, "Parser", strlen(tag)))
     luaL_error(L, "expected Parser as first argument!");
 
   lua_pushvalue(L, 1);
   parser.ref = lua_ref(L, LUA_REGISTRYINDEX);
-
   if (parser.ref == LUA_NOREF)
     luaL_error(L, "no parser ref");
 
   lua_getfield(L, 1, "lex");
-  luaL_checktype(L, -1, LUA_TFUNCTION);
+  if (!lua_isfunction(L, -1))
+    return luaL_error(L, "no parser lexer function");
   parser.lexref = lua_ref(L, LUA_REGISTRYINDEX);
 
   lua_getfield(L, 1, "env");
-  luaL_checktype(L, -1, LUA_TTABLE);
+  if (!lua_istable(L, -1))
+    return luaL_error(L, "no local environment");
   parser.envref = lua_ref(L, LUA_REGISTRYINDEX);
 
+  lua_getfield(L, 1, "errf");
+  if (!lua_isfunction(L, -1))
+    return luaL_error(L, "no parser error function");
 
-  if (parser.lexref == LUA_NOREF)
-    luaL_error(L, "no lex ref");
+  lua_pushcfunction(L, l_parse2);
+  lua_getfield(L, 1, "penv");
+  if (!lua_istable(L, -1))
+    return luaL_error(L, "no parser environment table");
+  lua_setfenv(L, -2);
 
-  int e = lua_cpcall(L, l_parse2, &parser);
+  lua_pushlightuserdata(L, &parser);
+
+  int e = lua_pcall(L, 1, 1, -3);
   if (e) {
-    fprintf(stderr, "%s\n", lua_tostring(L, -1));
+    return lua_error(L);
   }
+
+  lua_settop(L, 0);
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, parser.ref);
+
+  lua_rawgeti(L, LUA_REGISTRYINDEX, parser.envref);
+  lua_getfield(L, -1, "tree");
+  lua_remove(L, -2);
 
   luaL_unref(L, LUA_REGISTRYINDEX, parser.astref);
   luaL_unref(L, LUA_REGISTRYINDEX, parser.ref);
   luaL_unref(L, LUA_REGISTRYINDEX, parser.lexref);
   luaL_unref(L, LUA_REGISTRYINDEX, parser.envref);
 
-  return 0;
+  return 2;
 }
-
-static const struct luaL_reg clex_table[] = {
-  {"parse", l_parse},
-  {NULL, NULL},
-};
-
 
 extern int luaopen_libclex_parse(lua_State * L)
 {
-  int e;
-
-  e = luaL_dostring(L, "require 'handlers'\n");
-  if (e) {
-    return luaL_error(L, lua_tostring(L, -1));
-  }
-  e = luaL_dostring(L, "require 'parser'\n");
-  if (e) {
-    return luaL_error(L, lua_tostring(L, -1));
-  }
-  e = luaL_dostring(L, "require 'lexer'\n");
-  if (e) {
-    return luaL_error(L, lua_tostring(L, -1));
-  }
-
-
-
-  luaL_register(L, "clex.Parser", clex_table);
+  lua_pushcfunction(L, l_parse);
   return 1;
 }
 
@@ -770,31 +766,6 @@ function gen_parser_imp(name, productions, tokens, map, tokensmap)
   end
 
   local header = [[
-require('dump')
-
-local dump = dump
-local dofile = dofile
-local error = error
-local type = type
-local string = string
-local ipairs = ipairs
-local pairs = pairs
-local io = io
-local table = table
-local setmetatable = setmetatable
-local getmetatable = getmetatable
-local rawget = rawget
-local assert = assert
-local tostring = tostring
-local tonumber = tonumber
-local unpack = unpack
-local debug = debug
-local input = io.input
-local format = string.format
-
-local write = function(...)
-  io.stdout:write(unpack{...}, " ")
-end
 
 local function include(tab, element)
   table.insert(tab, element)
@@ -808,9 +779,7 @@ local function merge(tab, atab)
   return tab
 end
 
-
-local print = print
-module("clex")
+local M = {}
 
 ]]
 
@@ -826,7 +795,7 @@ module("clex")
 
       for k, part in ipairs(rule.parts) do
         if part.tag == "block" then
-          write("function %s_%d_%d(env, ...)\n", production.red.value, j, k)
+          write("M.%s_%d_%d = function(env, ...)\n", production.red.value, j, k)
           write("--   %s %s\n", j==1 and ":" or "|", strrule(lparts))
           if #lparts > 0 then
             write("  local %s = ...\n", table.concat(mparts, ","))
@@ -840,7 +809,7 @@ module("clex")
         table.insert(lparts, part)
 
         if k == #rule.parts and part.tag ~= "block" then
-          write("function %s_%d_%d(env, ...)\n", production.red.value, j, k)
+          write("M.%s_%d_%d = function(env, ...)\n", production.red.value, j, k)
           write("  -- XXX default handler\n")
           io.stderr:write(format("warning: generating default handler for %s_%d_%d\n", production.red.value, j, k))
           write("  return {...}\n")
@@ -850,6 +819,7 @@ module("clex")
     end
     write("--   ;\n")
   end
+  write("return M")
 
 end
 
@@ -867,33 +837,8 @@ function gen_lexer(name, productions, tokens, map, tokensmap)
   end
 
   local header = [[
-require "dump"
-require "lpeg"
 
-local lpeg = lpeg
-
-local stdout = io.stdout
-local stderr = io.stderr
-local input = io.input
-local open = io.open
-local format = string.format
-local gsub = string.gsub
-local tostring = tostring
-local pairs = pairs
-local ipairs = ipairs
-local unpack = unpack
-local setmetatable = setmetatable
-local tonumber = tonumber
-local type = type
-local collectgarbage = collectgarbage
-local concat = table.concat
-local error = error
-local table = table
-
-local dump = dump
-
-module("clex.Parser")
-
+local lpeg = require "lpeg"
 local P, R, S, C, Cc, Ct, Cg, Cb, Cp, Carg, V =
   lpeg.P, lpeg.R, lpeg.S, lpeg.C, lpeg.Cc, lpeg.Ct, lpeg.Cg, lpeg.Cb, lpeg.Cp, lpeg.Carg, lpeg.V
 
@@ -904,7 +849,7 @@ local ws = nl + S"\t\v\r "
 
   local footer = [[
 
-function lex(prsr)
+local function lex(prsr)
   if prsr.running then
     local tok = (lpeg.match(token, prsr.src, prsr.pos, prsr.rt))
     if not tok then
@@ -920,7 +865,7 @@ function lex(prsr)
 
       return {id = 0} -- EOF
     end
-    
+
     if tok.id == 100 then -- IDENTIFIER
       if prsr.env.current:type_get_r(tok.value) then
         tok.id = 200 -- TYPE_NAME
@@ -935,6 +880,8 @@ function lex(prsr)
     error("lexer/parser is not running")
   end
 end
+
+return lex
 
 ]]
 
