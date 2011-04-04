@@ -23,21 +23,18 @@ M.tassert = function(token, cond, message, ...)
   return cond
 end
 
-M.tree_get_any_token = function(tree)
-  local tok
-  for k, v in pairs(tree) do
-    if v.tag == "token" then
-      tok = v
-    elseif type(v) == "table" then
-      tok = tree_get_any_token(v)
-    end
-
-    if tok then
-      return tok
-    end
+M.mktab = function(env, tree, tab, meta)
+  if not tree._m then
+    dump(tree)
   end
+  if (not tree._m) or (not tree._m._ts) then
+    dump(tree)
+  end
+  assert(tree._m and tree._m._ts)
+  env.loc[tab] = assert(tree._m, "AST no location")
+  setmetatable(tab, meta)
+  return tab
 end
-
 
 local function deepcompare(t1,t2,ignore_mt)
     local ty1 = type(t1)

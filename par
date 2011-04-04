@@ -49,7 +49,8 @@ if not stat then
     --dump(res)
     local tok, msg = unpack(res)
     msg = msg or "<N/I>"
-    if tok then
+    if tok and tok._ts then
+      --dump(tok, true)
       local ls = tok._ts
       local le = tok._te
       while ls > 1 do
@@ -71,7 +72,9 @@ if not stat then
   else
     print("error: " .. res)
   end
-  print(tbk)
+  --if not res then
+    print(tbk)
+  --end
 end
 
 --local cpr = CPR.Source(ast)

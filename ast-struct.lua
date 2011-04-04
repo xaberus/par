@@ -1,58 +1,38 @@
-StructDeclarator = Class("StructDeclarator", {
-  constructor = function(env, scope, struct, ctype, tree)
-    --dump(tree, nil, nil, nil, "structdeclr")
+StructDeclarator = Class("StructDeclarator", {},
+function(S, env, scope, struct, ctype, tree)
+  --dump(tree, nil, nil, nil, "structdeclr")
 
-    local self = {}
-    if tree.width then
-      local expr = Expression(env, tree.width)
-      tassert(nil, expr:is_constant())
-      self.width = expr
-      tassert(nil, ctype.reg == "x", "only integer types can have a width")
-      tassert(nil, not ctype.abs)
-    end
-    tassert(nil, scope)
-    tassert(nil, not scope[tree.iden.value], "field %s already defined in this scope", tree.iden.value)
+  local self = mktab(env, tree, {}, S)
 
-    self.id = tree.iden
-    scope[self.id.value] = {field = self, struct = struct}
-    self.ctype = ctype
+  if tree.width then
+    local expr = Expression(env, tree.width)
+    local loc = env.loc[expr]
+    tassert(loc, expr:is_constant(), "not constant width of struct field")
+    self.width = expr
+    tassert(loc, ctype.reg == "x", "only integer widths allowed")
+    tassert(loc, not ctype.abs, "only integer widths allowed")
+  end
+  local loc = env.loc[self]
+  local v = tree.iden.value
+  tassert(loc, scope, "AST/StructDeclarator no scope")
+  tassert(tree.iden, not scope[v], "field %s already defined in this scope", v)
 
-    return self
-  end,
-})
+  self.id = v
+  scope[v] = {field = self, struct = struct}
+  self.ctype = ctype
+
+  return self
+end)
 
 StructDeclaration = Class("StructDeclaration", {
-  constructor = function(env, scope, struct, tree)
-    --dump(tree, nil, nil, nil, "structdecl")
-
-    local self = {}
-
-    if tree.decl then
-      local ctype = Type(env, tree.ctype)
-      for k, v in ipairs(tree.decl) do
-        self[#self+1] = StructDeclarator(env, scope, struct, ctype, v)
-      end
-      self.ctype = ctype
-    elseif tree.anon then
-      local chld = tassert(nil, tree.ctype.sqlist.spec[1])
-      tassert(nil, chld.struct or chld.union)
-
-      return {anon = Struct(env, chld, nil, tassert(nil, scope))}
-    else
-      dump(tree, true)
-      tassert(nil, false)
-    end
-
-    return self
-  end,
   repr = function(self, indent)
     if not self.anon then 
       local tab = {}
       for k, v in ipairs(self) do
         if v.width then
-          tab[#tab+1] = v.id.value .. " : " .. v.width:repr(indent)
+          tab[#tab+1] = v.id .. " : " .. v.width:repr(indent)
         else
-          tab[#tab+1] = v.id.value
+          tab[#tab+1] = v.id
         end
       end
 
@@ -65,45 +45,31 @@ StructDeclaration = Class("StructDeclaration", {
       return indent .. self.anon:repr(indent) .. ";\n"
     end
   end,
-})
+},
+function(S, env, scope, struct, tree)
+  --dump(tree, nil, nil, nil, "structdecl")
+
+  if tree.decl then
+    local self = mktab(env, tree, {}, S)
+    local ctype = Type(env, tree.ctype)
+    for k, v in ipairs(tree.decl) do
+      self[#self+1] = StructDeclarator(env, scope, struct, ctype, v)
+    end
+    self.ctype = ctype
+    return self
+  elseif tree.anon then
+    local chld = tassert(tree._m, tree.ctype.sqlist.spec[1], "AST/Struct, not a child")
+    tassert(tree._m, chld.struct or chld.union, "AST/Struct neither struct nor union")
+
+    local self = mktab(env, tree, {anon = Struct(env, chld, nil, tassert(tree._m, scope, "AST/Struct no scope"))}, S)
+    return self
+  else
+    dump(tree, true)
+    tassert(tree._m, false, "AST/Struct not reached")
+  end
+end)
 
 Struct = Class("Struct", {
-  constructor = function(env, tree, name, scope, id)
-    --dump(tree, nil, nil, nil, "struct")
-    if type(tree.struct) == "table" then
-      local name = tree.struct.value
-      local ref = tassert(tree.struct, env:struct_get_r(name),
-        "undefined struct '%s'", name)
-      return {ref = ref}
-    else
-      local self = {
-        scope = scope or {[0] = 1},
-      }
-
-      if tree.union then
-        self.union = true
-      end
-
-      if id then
-        name = id.value
-        self.id = id
-      end
-
-      if name then
-        self.name = name
-      else
-        self.name = "anonymous" .. self.scope[0]
-        self.scope[0] = self.scope[0] + 1
-      end
-
-      for k, v in ipairs(tree.decl) do
-        self[#self+1] = StructDeclaration(env, self.scope, self, v)
-      end
-
-      --dump(self, true, nil, nil, "Struct")
-      return self
-    end
-  end,
   repr = function(self, indent)
     local tab = {}
 
@@ -117,7 +83,7 @@ Struct = Class("Struct", {
       end
 
       tab[#tab+1] = " "
-      tab[#tab+1] = ref.id.value
+      tab[#tab+1] = ref.id
     else
       if self.union then
         tab[#tab+1] = "union"
@@ -126,8 +92,8 @@ Struct = Class("Struct", {
       end
 
       tab[#tab+1] = " "
-      if self.id then
-        tab[#tab+1] = self.id.value
+      if not self.anon then
+        tab[#tab+1] = self.id
         tab[#tab+1] = " "
       end
 
@@ -148,6 +114,7 @@ Struct = Class("Struct", {
         -- not in source
       end
     end
+    --dump(tab)
     return concat(tab, "")
   end,
 
@@ -166,4 +133,38 @@ Struct = Class("Struct", {
     end
   end,
 
-})
+},
+function(S, env, tree, id, scope)
+  --dump(tree, nil, nil, nil, "struct")
+  if type(tree.struct) == "table" then
+    local id = tree.struct.value
+    local ref = tassert(tree.struct, env:struct_get_r(id),
+      "undefined struct '%s'", id)
+    local self = mktab(env, tree, {ref = ref}, S)
+    return self
+  else
+    local self = mktab(env, tree, {scope = scope or {[0] = 1}}, S)
+    if id then
+      env:struct_reg(id, self)
+    end
+
+    if tree.union then
+      self.union = true
+    end
+
+    if id then
+      self.id = id
+    else
+      self.anon = true
+      self.id = "anonymous" .. self.scope[0]
+      self.scope[0] = self.scope[0] + 1
+    end
+
+    for k, v in ipairs(tree.decl) do
+      self[#self+1] = StructDeclaration(env, self.scope, self, v)
+    end
+
+    --dump(self, true, nil, nil, "Struct")
+    return self
+  end
+end)

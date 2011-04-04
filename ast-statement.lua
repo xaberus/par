@@ -1,8 +1,6 @@
 Statement = Class("Statement", {
-  constructor = function(env, tree)
-    --dump(tree, nil, nil, nil, "stmt")
-    local self = {}
-    if tree.ifcl then
+  h = {
+    ["if"] = function(env, tree, self)
       self.expr = Expression(env, tree.ifcl)
       self.dstmt = Statement(env, tree.dstmt);
       self.opened = tree.opened
@@ -12,12 +10,14 @@ Statement = Class("Statement", {
       else
         self.kind = "if"
       end
-    elseif tree.docl then
+    end,
+    ["do"] = function(env, tree, self)
       local env = env:child("loop")
       self.kind = "do"
       self.expr = Expression(env, tree.docl)
       self.dstmt = Statement(env, tree.dstmt)
-    elseif tree.forcl then
+    end,
+    ["for"] = function(env, tree, self)
       local env = env:child("loop")
       local m = tree.forcl
       self.kind = "for"
@@ -39,42 +39,51 @@ Statement = Class("Statement", {
         self.run = Expression(env, tree.incr)
       end
       self.dstmt = Statement(env, tree.dstmt)
-    elseif tree.whilecl then
+    end,
+    ["while"] = function(env, tree, self)
       local env = env:child("loop")
       self.kind = "while"
       self.expr = Expression(env, tree.whilecl)
       self.dstmt = Statement(env, tree.dstmt)
-    elseif tree.switchcl then
+    end,
+    ["switch"] = function(env, tree, self)
       local env = env:child("switch")
       self.kind = "switch"
       self.expr = Expression(env, tree.switchcl)
       self.dstmt = Statement(env, tree.dstmt)
-    elseif tree.default then
-      tassert(nil, 
+    end,
+    ["default"] = function(env, tree, self)
+      tassert(env.loc[self],
         env.kind == "switch"
         or env.parent.kind == "switch")
       self.kind = "default"
-    elseif tree.case then
-      tassert(nil, 
+    end,
+    ["case"] = function(env, tree, self)
+      tassert(env.loc[self],
         env.kind == "switch"
         or env.parent.kind == "switch")
       self.kind = "case"
       self.expr = Expression(env, tree.case)
-    elseif tree.expr then
+    end,
+    ["expr"] = function(env, tree, self)
       self.kind = "expr"
       self.expr = Expression(env, tree.expr)
-    elseif tree.empty then
+    end,
+    ["@"] = function(env, tree, self)
       self.kind = "empty"
-    elseif tree.compound then
+    end,
+    ["{}"] = function(env, tree, self)
       self.kind = "block"
       local env = env:child("block")
       self.block = Block(env, tree.compound)
-    elseif tree.retstmt then
+    end,
+    ["return"] = function(env, tree, self)
       self.kind = "return"
       if type(tree.retstmt) == "table" then
         self.expr = Expression(env, tree.retstmt)
       end
-    elseif tree.breakstmt then
+    end,
+    ["break"] = function(env, tree, self)
       local be = env
       while be do
         local k = be.kind
@@ -86,7 +95,8 @@ Statement = Class("Statement", {
       end
       self.kind = "break"
       self.env = tassert(tree.breakstmt, be, "no scope to break out to")
-    elseif tree.contstmt then
+    end,
+    ["continue"] = function(env, tree, self)
       local le = env
       while le do
         if le.kind == "loop" then
@@ -98,21 +108,21 @@ Statement = Class("Statement", {
       tassert(tree.contstmt, le, "continue not in a loop scope")
       self.kind = "cont"
       self.env = le
-    elseif tree.label then
+    end,
+    ["label"] = function(env, tree, self)
+      local v = tree.label.value
       self.kind = "label"
-      self.ref = env:label_get_r(tree.label.value)
-      self.id = tree.label
-    elseif tree.gotostmt then
+      self.ref = env:label_get_r(v)
+      self.id = v
+    end,
+    ["goto"] = function(env, tree, self)
+      local v = tree.gotostmt.value
       self.kind = "goto"
-      self.id = tree.gotostmt
-      self.ref = tassert(nil, env:label_get_r(self.id.value), 
-        "no label %s in this scope", self.id.value)
-    else
-      dump(tree, nil, nil, nil, "stmt")
-      tassert(nil, false)
-    end
-    return self
-  end,
+      self.id = v
+      self.ref = tassert(tree.gotostmt, env:label_get_r(v), 
+        "no label %s in this scope", v)
+    end,
+  },
   repr = function(self, indent)
     local kind = self.kind
     local function dostmt(tab, dstmt, indent)
@@ -241,13 +251,13 @@ Statement = Class("Statement", {
       tab[#tab+1] = "continue"
       tab[#tab+1] = ";\n"
     elseif kind == "label" then
-      tab[#tab+1] = self.id.value
+      tab[#tab+1] = self.id
       tab[#tab+1] = ":\n"
     elseif kind == "goto" then
       tab[#tab+1] = indent
       tab[#tab+1] = "goto"
       tab[#tab+1] = " "
-      tab[#tab+1] = self.id.value
+      tab[#tab+1] = self.id
       tab[#tab+1] = ";\n"
     elseif kind == "switch" then
       tab[#tab+1] = indent
@@ -279,5 +289,11 @@ Statement = Class("Statement", {
     end
     return concat(tab, "")
   end,
-})
+},
+function(S, env, tree)
+  --dump(tree, nil, nil, nil, "stmt")
+  local self = mktab(env, tree, {}, S)
+  S.h[tree.k](env, tree, self)
+  return self
+end)
 

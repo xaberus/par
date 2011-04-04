@@ -1,13 +1,15 @@
 Environment = Class("Environment", {
   constructor = function()
     return {
+      loc = {};
     }
   end,
 
   child = function(self, kind)
-    local e = Environment()
+    local e = setmetatable({}, getmetatable(self))
     e.parent = self
     e.kind = kind or "env"
+    e.loc = self.loc
     self[#self+1] = e
     return e
   end,

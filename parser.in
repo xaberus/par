@@ -175,40 +175,40 @@ tokens {
 
 primary_expression
   : IDENTIFIER {
-      return {k = "id", iden = $1}
+      return {k = "id", iden = $1, _m = m}
     }
   | SELF {
-      return {k = "self", self = "self"}
+      return {k = "self", self = "self", _m = m}
     }
   | constant {
-      return {k = "c", const = $1}
+      return {k = "c", const = $1, _m = m}
     }
   | L_PAREN expression R_PAREN {
-      return {k = "par", par = $2}
+      return {k = "par", par = $2, _m = m}
     }
   | L_PAREN compound_statement R_PAREN {
-      return {k = "comp", compound = $2}
+      return {k = "comp", compound = $2, _m = m}
     }
   ;
 
 constant
   : STRING_CONSTANT {
-      return {string = $1}
+      return {string = $1, _m = m}
     }
   | CHAR_CONSTANT{
-      return {char = $1}
+      return {char = $1, _m = m}
     }
   | OCT_INT_CONSTANT{
-      return {oct = $1}
+      return {oct = $1, _m = m}
     }
   | DEC_INT_CONSTANT{
-      return {dec = $1}
+      return {dec = $1, _m = m}
     }
   | HEX_INT_CONSTANT{
-      return {hex = $1}
+      return {hex = $1, _m = m}
     }
   | FLOAT_CONSTANT{
-      return {float = $1}
+      return {float = $1, _m = m}
     }
   ;
 
@@ -217,35 +217,35 @@ postfix_expression
       return $1
     }
   | postfix_expression L_BRACKET expression R_BRACKET {
-      return {k = "idx", index = $1, expr = $3}
+      return {k = "idx", index = $1, expr = $3, _m = m}
     }
   | postfix_expression L_PAREN R_PAREN {
-      return {k = "call", call = $1, args = {k = "l", list = {}}}
+      return {k = "call", call = $1, args = {k = "l", list = {}, _m = m}, _m = m}
     }
   | postfix_expression L_PAREN argument_expression_list R_PAREN {
-      return {k = "call", call = $1, args = {k = "l", list=$3}}
+      return {k = "call", call = $1, args = {k = "l", list=$3, _m = m}, _m = m}
     }
   | postfix_expression DOT IDENTIFIER {
-      return {k = "d", dot = $1, iden = $3}
+      return {k = "d", dot = $1, iden = $3, _m = m}
     }
   /*| postfix_expression PTR_OP IDENTIFIER*/
   | postfix_expression INC_OP {
-      return {k = "op_inc", inc = $1}
+      return {k = "op_inc", inc = $1, _m = m}
     }
   | postfix_expression DEC_OP {
-      return {k = "op_dec", dec = $1}
+      return {k = "op_dec", dec = $1, _m = m}
     }
   | L_PAREN type_name R_PAREN L_BRACE initializer_list R_BRACE {
-      return {k = "tc", tc = $2, list = $5}
+      return {k = "tc", tc = $2, list = $5, _m = m}
     }
   | L_PAREN type_name R_PAREN L_BRACE initializer_list COMMA R_BRACE {
-      return {k = "tc", tc = $2, list = $5}
+      return {k = "tc", tc = $2, list = $5, _m = m}
     }
   ;
 
 argument_expression_list
   : assignment_expression {
-      return {$1}
+      return {$1, _m = m}
     }
   | argument_expression_list COMMA assignment_expression {
       $1[#$1+1] = $3
@@ -258,34 +258,34 @@ unary_expression
       return $1
     }
   | INC_OP unary_expression {
-      return {k = "op_uinc", uinc = $2}
+      return {k = "op_uinc", uinc = $2, _m = m}
     }
   | DEC_OP unary_expression {
-      return {k = "op_denc", udec = $2}
+      return {k = "op_denc", udec = $2, _m = m}
     }
   | AMPERSAND cast_expression {
-      return {k = "op_addr", addr = $2}
+      return {k = "op_addr", addr = $2, _m = m}
     }
   | STAR cast_expression {
-      return {k = "op_deref", deref = $2}
+      return {k = "op_deref", deref = $2, _m = m}
     }
   | PLUS cast_expression {
-      return {k = "op_unp", unp = $2}
+      return {k = "op_unp", unp = $2, _m = m}
     }
   | MINUS cast_expression {
-      return {k = "op_unm", unm = $2}
+      return {k = "op_unm", unm = $2, _m = m}
     }
   | TILDE cast_expression {
-      return {k = "op_bnot", bnot = $2}
+      return {k = "op_bnot", bnot = $2, _m = m}
     }
   | EXCLAMATION cast_expression {
-      return {k = "op_lnot", lnot = $2}
+      return {k = "op_lnot", lnot = $2, _m = m}
     }
   | SIZEOF unary_expression {
-      return {k = "op_sizeof", sizeof = $2}
+      return {k = "op_sizeof", sizeof = $2, _m = m}
     }
   | SIZEOF L_PAREN type_name R_PAREN {
-      return {k = "op_fsizeof", fsizeof = $3}
+      return {k = "op_fsizeof", fsizeof = $3, _m = m}
     }
   ;
 
@@ -294,7 +294,7 @@ cast_expression
       return $1
     }
   | L_PAREN type_name R_PAREN cast_expression {
-      return {k = "cast", cast = $4, ctype = $2}
+      return {k = "cast", cast = $4, ctype = $2, _m = m}
     }
   ;
 
@@ -304,13 +304,13 @@ multiplicative_expression
       return $1
     }
   | multiplicative_expression STAR cast_expression {
-      return {k = "op_mul", mul = $1, expr = $3}
+      return {k = "op_mul", mul = $1, expr = $3, _m = m}
     }
   | multiplicative_expression SLASH cast_expression {
-      return {k = "op_div", div = $1, expr = $3}
+      return {k = "op_div", div = $1, expr = $3, _m = m}
     }
   | multiplicative_expression PERCENT cast_expression {
-      return {k = "op_mod", mod = $1, expr = $3}
+      return {k = "op_mod", mod = $1, expr = $3, _m = m}
     }
   ;
 
@@ -319,10 +319,10 @@ additive_expression
       return $1
     }
   | additive_expression PLUS multiplicative_expression {
-      return {k = "op_add", add = $1, expr = $3}
+      return {k = "op_add", add = $1, expr = $3, _m = m}
     }
   | additive_expression MINUS multiplicative_expression {
-      return {k = "op_sub", sub = $1, expr = $3}
+      return {k = "op_sub", sub = $1, expr = $3, _m = m}
     }
   ;
 
@@ -331,10 +331,10 @@ shift_expression
       return $1
     }
   | shift_expression LEFT_OP additive_expression {
-      return {k = "op_shl", shl = $1, expr = $3}
+      return {k = "op_shl", shl = $1, expr = $3, _m = m}
     }
   | shift_expression RIGHT_OP additive_expression {
-      return {k = "op_shr", shr = $1, expr = $3}
+      return {k = "op_shr", shr = $1, expr = $3, _m = m}
     }
   ;
 
@@ -343,16 +343,16 @@ relational_expression
       return $1
     }
   | relational_expression LESS shift_expression {
-      return {k = "op_ls", ls = $1, expr = $3}
+      return {k = "op_ls", ls = $1, expr = $3, _m = m}
     }
   | relational_expression GREATER shift_expression {
-      return {k = "op_gt", gt = $1, expr = $3}
+      return {k = "op_gt", gt = $1, expr = $3, _m = m}
     }
   | relational_expression LE_OP shift_expression {
-      return {k = "op_le", le = $1, expr = $3}
+      return {k = "op_le", le = $1, expr = $3, _m = m}
     }
   | relational_expression GE_OP shift_expression {
-      return {k = "op_ge", ge = $1, expr = $3}
+      return {k = "op_ge", ge = $1, expr = $3, _m = m}
     }
   ;
 
@@ -361,10 +361,10 @@ equality_expression
       return $1
     }
   | equality_expression EQ_OP relational_expression {
-      return {k = "op_eq", eq = $1, expr = $3}
+      return {k = "op_eq", eq = $1, expr = $3, _m = m}
     }
   | equality_expression NE_OP relational_expression {
-      return {k = "op_ne", ne = $1, expr = $3}
+      return {k = "op_ne", ne = $1, expr = $3, _m = m}
     }
   ;
 
@@ -373,7 +373,7 @@ and_expression
       return $1
     }
   | and_expression AMPERSAND equality_expression {
-      return {k = "op_band", band = $1, expr = $3}
+      return {k = "op_band", band = $1, expr = $3, _m = m}
     }
   ;
 
@@ -382,7 +382,7 @@ exclusive_or_expression
       return $1
     }
   | exclusive_or_expression CIRCUMFLEX and_expression {
-      return {k = "op_bxor", bxor = $1, expr = $3}
+      return {k = "op_bxor", bxor = $1, expr = $3, _m = m}
     }
   ;
 
@@ -391,7 +391,7 @@ inclusive_or_expression
       return $1
     }
   | inclusive_or_expression PIPE exclusive_or_expression {
-      return {k = "op_bor", bor = $1, expr = $3}
+      return {k = "op_bor", bor = $1, expr = $3, _m = m}
     }
   ;
 
@@ -400,7 +400,7 @@ logical_and_expression
       return $1
     }
   | logical_and_expression AND_OP inclusive_or_expression {
-      return {k = "op_land", land = $1, expr = $3}
+      return {k = "op_land", land = $1, expr = $3, _m = m}
     }
   ;
 
@@ -409,7 +409,7 @@ logical_or_expression
       return $1
     }
   | logical_or_expression OR_OP logical_and_expression {
-      return {k = "op_lor", lor = $1, expr = $3}
+      return {k = "op_lor", lor = $1, expr = $3, _m = m}
     }
   ;
 
@@ -418,7 +418,7 @@ conditional_expression
       return $1
     }
   | logical_or_expression QUESTION expression COLON conditional_expression {
-      return {k = "cond", cond = $1, texpr = $3, fexpr = $5}
+      return {k = "cond", cond = $1, texpr = $3, fexpr = $5, _m = m}
     }
   ;
 
@@ -427,43 +427,43 @@ assignment_expression
       return $1
     }
   | unary_expression ASSIGN assignment_expression {
-      return {k = "op_asgn", asgn = $1, expr = $3}
+      return {k = "op_asgn", asgn = $1, expr = $3, _m = m}
     }
   | unary_expression MUL_ASSIGN assignment_expression {
-      return {k = "op_mulasgn", mul_asgn = $1, expr = $3}
+      return {k = "op_mulasgn", mul_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression DIV_ASSIGN assignment_expression {
-      return {k = "op_divasgn", div_asgn = $1, expr = $3}
+      return {k = "op_divasgn", div_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression MOD_ASSIGN assignment_expression {
-      return {k = "op_modasgn", mod_asgn = $1, expr = $3}
+      return {k = "op_modasgn", mod_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression ADD_ASSIGN assignment_expression {
-      return {k = "op_addasgn", add_asgn = $1, expr = $3}
+      return {k = "op_addasgn", add_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression SUB_ASSIGN assignment_expression {
-      return {k = "op_subasgn", sub_asgn = $1, expr = $3}
+      return {k = "op_subasgn", sub_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression LEFT_ASSIGN assignment_expression {
-      return {k = "op_shlasgn", shl_asgn = $1, expr = $3}
+      return {k = "op_shlasgn", shl_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression RIGHT_ASSIGN assignment_expression {
-      return {k = "op_shrasgn", shr_asgn = $1, expr = $3}
+      return {k = "op_shrasgn", shr_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression AND_ASSIGN assignment_expression {
-      return {k = "op_bandasgn", band_asgn = $1, expr = $3}
+      return {k = "op_bandasgn", band_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression XOR_ASSIGN assignment_expression {
-      return {k = "op_bxorasgn", bxor_asgn = $1, expr = $3}
+      return {k = "op_bxorasgn", bxor_asgn = $1, expr = $3, _m = m}
     }
   | unary_expression OR_ASSIGN assignment_expression {
-      return {k = "op_borasgn", bor_asgn = $1, expr = $3}
+      return {k = "op_borasgn", bor_asgn = $1, expr = $3, _m = m}
     }
   ;
 
 expression
   : assignment_expression {
-      return {k = "l", list = {$1}}
+      return {k = "l", list = {$1}, _m = m}
     }
   | expression COMMA assignment_expression {
       $1.list[#$1.list+1] = $3
@@ -485,16 +485,16 @@ constant_expression
 
 declaration
   : type_name init_declarator_list SEMICOLON {
-      return {pure = true, decl = $2, ctype = $1}
+      return {pure = true, decl = $2, ctype = $1, _m = m}
     }
   | TYPEDEF type_name IDENTIFIER SEMICOLON {
-      local tdef = {tdef = true, tdef = $3, ctype = $2}
-      env.current:type_reg($3.value, {loc = tdef})
+      local tdef = {tdef = true, tdef = $3, ctype = $2, _m = m}
+      env.current:type_reg($3.value, {})
       --dump(env.current)
       return tdef
     }
   | storage_class_specifier type_name init_declarator_list SEMICOLON {
-      return {decl = $3, ctype = $2, spec = $1}
+      return {decl = $3, ctype = $2, spec = $1, _m = m}
     }
   | struct_or_union_definition SEMICOLON {
       return $1
@@ -506,23 +506,23 @@ declaration
 
 struct_or_union_definition
   : struct_or_union IDENTIFIER L_BRACE struct_declaration_list R_BRACE {
-      return {[$1.value] = true, iden = $2, decl = $4}
+      return {[$1.value] = true, iden = $2, decl = $4, _m = m}
     }
   ;
 
 enum_definition
   : ENUM IDENTIFIER L_BRACE enumerator_list R_BRACE {
-      return {enum = $2, list = $4}
+      return {enum = $2, list = $4, _m = m}
     }
   | ENUM IDENTIFIER L_BRACE enumerator_list COMMA R_BRACE {
-      return {enum = $2, list = $4}
+      return {enum = $2, list = $4, _m = m}
     }
   ;
 
 
 init_declarator_list
   : init_declarator {
-      return {$1}
+      return {$1, _m = m}
     }
   | init_declarator_list COMMA init_declarator {
       $1[#$1+1] = $3
@@ -532,10 +532,10 @@ init_declarator_list
 
 init_declarator
   : IDENTIFIER {
-      return {iden = $1}
+      return {iden = $1, _m = m}
     }
   | IDENTIFIER ASSIGN initializer {
-      return {iden = $1, init = $3}
+      return {iden = $1, init = $3, _m = m}
     }
   ;
 
@@ -631,10 +631,10 @@ type_specifier
 
 struct_or_union_specifier
   : struct_or_union IDENTIFIER {
-      return {[$1.value] = $2}
+      return {[$1.value] = $2, _m = m}
     }
   | struct_or_union L_BRACE struct_declaration_list R_BRACE {
-      return {[$1.value] = true, decl = $3}
+      return {[$1.value] = true, decl = $3, _m = m}
     }
   ;
 
@@ -649,7 +649,7 @@ struct_or_union
 
 struct_declaration_list
   : struct_declaration {
-      return {$1}
+      return {$1, _m = m}
     }
   | struct_declaration_list struct_declaration {
       $1[#$1+1] = $2
@@ -659,10 +659,10 @@ struct_declaration_list
 
 struct_declaration
   : type_name struct_declarator_list SEMICOLON {
-      return {decl = $2, ctype = $1}
+      return {decl = $2, ctype = $1, _m = m}
     }
   | type_name SEMICOLON {
-      return {anon = true, ctype = $1}
+      return {anon = true, ctype = $1, _m = m}
     }
   ;
 
@@ -672,20 +672,20 @@ specifier_qualifier_list
       return $2
     }
   | type_specifier {
-      return {spec = {$1}, qual = {}}
+      return {spec = {$1}, qual = {}, _m = m}
     }
   | type_qualifier specifier_qualifier_list {
       $2.qual[#$2.qual+1] = $1
       return $2
     }
   | type_qualifier {
-      return {spec = {}, qual = {$1}}
+      return {spec = {}, qual = {$1}, _m = m}
     }
   ;
 
 struct_declarator_list
   : struct_declarator {
-      return {$1}
+      return {$1, _m = m}
     }
   | struct_declarator_list COMMA struct_declarator {
       $1[#$1+1] = $3
@@ -695,28 +695,28 @@ struct_declarator_list
 
 struct_declarator
   : IDENTIFIER {
-      return {iden = $1}
+      return {iden = $1, _m = m}
     }
   | IDENTIFIER COLON constant_expression {
-      return {iden = $1, width = $3}
+      return {iden = $1, width = $3, _m = m}
     }
   ;
 
 enum_specifier
   : ENUM L_BRACE enumerator_list R_BRACE {
-      return {enum = true, list = $3}
+      return {enum = true, list = $3, _m = m}
     }
   | ENUM L_BRACE enumerator_list COMMA R_BRACE {
-      return {enum = true, list = $3}
+      return {enum = true, list = $3, _m = m}
     }
   | ENUM IDENTIFIER {
-      return {enum = $2}
+      return {enum = $2, _m = m}
     }
   ;
 
 enumerator_list
   : enumerator {
-      return {$1}
+      return {$1, _m = m}
     }
   | enumerator_list COMMA enumerator {
       $1[#$1+1] = $3
@@ -726,10 +726,10 @@ enumerator_list
 
 enumerator
   : IDENTIFIER {
-      return {iden = $1}
+      return {iden = $1, _m = m}
     }
   | IDENTIFIER ASSIGN constant_expression {
-      return {iden = $1, value = $3}
+      return {iden = $1, value = $3, _m = m}
     }
   ;
 
@@ -747,37 +747,37 @@ type_qualifier
 
 pointer
   : STAR {
-      return {{}}
+      return {{_m = m}}
     }
   | STAR type_qualifier_list {
-      return {{qual = $2}}
+      return {{qual = $2}, _m = m}
     }
   | STAR pointer {
-      return merge({{}}, $2)
+      return merge({{_m = m}}, $2)
     }
   | STAR type_qualifier_list pointer {
-      return merge({{qual = $2}}, $3)
+      return merge({{qual = $2, _m = m}}, $3)
     }
   ;
 
 array
   : L_BRACKET type_qualifier_list assignment_expression R_BRACKET {
-      return {{qual = $2, expr = $3}}
+      return {{qual = $2, expr = $3, _m = m}}
     }
   | L_BRACKET type_qualifier_list R_BRACKET {
-      return {{qual = $2}}
+      return {{qual = $2, _m = m}}
     }
   | L_BRACKET assignment_expression R_BRACKET {
-      return {{expr = $2}}
+      return {{expr = $2, _m = m}}
     }
   | L_BRACKET STATIC type_qualifier_list assignment_expression R_BRACKET {
-      return {{static = true, qual = $3, expr = $4}}
+      return {{static = true, qual = $3, expr = $4, _m = m}}
     }
   | L_BRACKET type_qualifier_list STATIC assignment_expression R_BRACKET {
-      return {{static = true, qual = $3, expr = $5}}
+      return {{static = true, qual = $3, expr = $5, _m = m}}
     }
   | L_BRACKET R_BRACKET {
-      return {{}}
+      return {{_m = m}}
     }
   | array L_BRACKET type_qualifier_list assignment_expression R_BRACKET {
       $1[#$1+1] = {qual = $3, expr = $4}
@@ -807,16 +807,16 @@ array
 
 function_type
   : type_name COLON {
-      return {funcatype = true, ret = $1, list = {}}
+      return {funcatype = true, ret = $1, list = {}, _m = m}
     }
   | type_name COLON type_name_list {
-      return {funcatype = true, ret = $1, list = $3}
+      return {funcatype = true, ret = $1, list = $3, _m = m}
     }
   ;
 
 type_name_list
   : type_name {
-      return {$1}
+      return {$1, _m = m}
     }
   | type_name_list COMMA type_name {
       $1[#$1+1] = $3
@@ -826,7 +826,7 @@ type_name_list
 
 type_qualifier_list
   : type_qualifier {
-      return {$1}
+      return {$1, _m = m}
     }
   | type_qualifier_list type_qualifier {
       $1[#$1+1] = $2
@@ -847,7 +847,7 @@ parameter_type_list
 
 parameter_list
   : parameter_declaration {
-      return {$1}
+      return {$1, _m = m}
     }
   | parameter_list COMMA parameter_declaration {
       $1[#$1+1] = $3
@@ -858,59 +858,59 @@ parameter_list
 
 parameter_declaration
   : type_name IDENTIFIER {
-      return {param = $2, ctype = $1}
+      return {param = $2, ctype = $1, _m = m}
     }
   ;
 
 type_name
   : specifier_qualifier_list {
-      return {sqlist = $1}
+      return {sqlist = $1, _m = m}
     }
   | specifier_qualifier_list abstract_declarator {
-      return {sqlist = $1, adecl = $2}
+      return {sqlist = $1, adecl = $2, _m = m}
     }
   | L_BRACKET function_type R_BRACKET abstract_declarator {
-      return {functype = $2, adecl = $4}
+      return {functype = $2, adecl = $4, _m = m}
     }
   | L_BRACKET type_name_list R_BRACKET {
-      return {tuple = $2}
+      return {tuple = $2, _m = m}
     }
   | L_BRACKET type_name_list R_BRACKET abstract_declarator {
-      return {tuple = $2, adecl = $4}
+      return {tuple = $2, adecl = $4, _m = m}
     }
   ;
 
 abstract_declarator
   : pointer {
-      return {pointer = $1}
+      return {pointer = $1, _m = m}
     }
   | pointer array {
-      return {pointer = $1, array = $2}
+      return {pointer = $1, array = $2, _m = m}
     }
   | array {
-      return {array = $1}
+      return {array = $1, _m = m}
     }
   ;
 
 initializer
   : assignment_expression {
-      return {asgnexpr = $1}
+      return {asgnexpr = $1, _m = m}
     }
   | L_BRACE initializer_list R_BRACE {
-      return {initlist = $2}
+      return {initlist = $2, _m = m}
     }
   | L_BRACE initializer_list COMMA R_BRACE {
-      return {initlist = $2}
+      return {initlist = $2, _m = m}
     }
   ;
 
 initializer_list
   : initializer {
-      return {$1}
+      return {$1, _m = m}
     }
   | designation initializer {
       $2.desgn = $1
-      return {$2}
+      return {$2, _m = m}
     }
   | initializer_list COMMA initializer {
       $1[#$1+1] = $3
@@ -931,7 +931,7 @@ designation
 
 designator_list
   : designator {
-      return {$1}
+      return {$1, _m = m}
     }
   | designator_list designator {
       $1[#$1+1] = $2
@@ -941,10 +941,10 @@ designator_list
 
 designator
   : L_BRACKET constant_expression R_BRACKET {
-      return {index = $2}
+      return {index = $2, _m = m}
     }
   | DOT IDENTIFIER {
-      return {iden = $2}
+      return {iden = $2, _m = m}
     }
   ;
 
@@ -959,52 +959,52 @@ statement
 
 if_clause
   : IF L_PAREN expression R_PAREN {
-      return {ifcl = $3}
+      return {k = "if", ifcl = $3, _m = m}
     }
   ;
 
 do_clause
   : DO {
-      return {docl = true}
+      return {k = "do", docl = true, _m = m}
     }
   ;
 
 for_clause
   : FOR L_PAREN expression_statement expression_statement R_PAREN {
-      return {forcl = "ee", init = $3.expr, cond = $4.expr}
+      return {k = "for", forcl = "ee", init = $3.expr, cond = $4.expr, _m = m}
     }
   | FOR L_PAREN expression_statement expression_statement expression R_PAREN {
-      return {forcl = "eee", init = $3.expr, cond = $4.expr, incr=$5}
+      return {k = "for", forcl = "eee", init = $3.expr, cond = $4.expr, incr=$5, _m = m}
     }
   | FOR L_PAREN declaration expression_statement R_PAREN {
-      return {forcl = "de", decl = $3, cond = $4.expr}
+      return {k = "for", forcl = "de", decl = $3, cond = $4.expr, _m = m}
     }
   | FOR L_PAREN declaration expression_statement expression R_PAREN {
-      return {forcl = "dee", decl = $3, cond = $4.expr, incr=$5}
+      return {k = "for", forcl = "dee", decl = $3, cond = $4.expr, incr=$5, _m = m}
     }
   ;
 
 while_clause
   : WHILE L_PAREN expression R_PAREN {
-      return {whilecl = $3}
+      return {k = "while", whilecl = $3, _m = m}
     }
   ;
 
 label
   : IDENTIFIER COLON {
-      return {label = $1}
+      return {k = "label", label = $1, _m = m}
     }
   | CASE constant_expression COLON {
-      return {case = $2}
+      return {k = "case", case = $2, _m = m}
     }
   | DEFAULT COLON {
-      return {default = true}
+      return {k = "default", default = true, _m = m}
     }
   ;
 
 switch_clause
   : SWITCH L_PAREN expression R_PAREN {
-      return {switchcl = $3}
+      return {k = "switch", switchcl = $3, _m = m}
     }
   ;
 
@@ -1077,13 +1077,13 @@ closed_statement
       return $1
     }
   | compound_statement {
-      return {compound = $1}
+      return {k = "{}", compound = $1, _m = m}
     }
   ;
 
 compound_statement
   : L_BRACE R_BRACE {
-      return {}
+      return {_m = m}
     }
   | L_BRACE block_item_list R_BRACE {
       return $2
@@ -1093,7 +1093,7 @@ compound_statement
 
 block_item_list
   : block_item {
-      return {$1}
+      return {$1, _m = m}
     }
   | block_item_list block_item {
       $1[#$1+1] = $2
@@ -1103,38 +1103,38 @@ block_item_list
 
 block_item
   : declaration {
-      return {decl = $1}
+      return {decl = $1, _m = m}
     }
   | statement {
-      return {stmt = $1}
+      return {stmt = $1, _m = m}
     }
   ;
 
 expression_statement
   : SEMICOLON {
-      return {empty = true}
+      return {k = "@", empty = true, _m = m}
     }
   | expression SEMICOLON {
-      return {expr = $1}
+      return {k = "expr", expr = $1, _m = m}
     }
   ;
 
 
 jump_statement
   : GOTO IDENTIFIER SEMICOLON {
-      return {gotostmt = $2}
+      return {k = "goto", gotostmt = $2, _m = m}
     }
   | CONTINUE SEMICOLON {
-      return {contstmt = $1}
+      return {k = "continue", contstmt = $1, _m = m}
     }
   | BREAK SEMICOLON {
-      return {breakstmt = $1}
+      return {k = "break", breakstmt = $1, _m = m}
     }
   | RETURN SEMICOLON {
-      return {retstmt = true}
+      return {k = "return", retstmt = true, _m = m}
     }
   | RETURN expression SEMICOLON {
-      return {retstmt = $2}
+      return {k = "return", retstmt = $2, _m = m}
     }
   ;
 
@@ -1148,7 +1148,7 @@ source
 
 translation_unit
   : external_declaration {
-      return {$1}
+      return {$1, _m = m}
     }
   | translation_unit external_declaration {
       $1[#$1+1] = $2
@@ -1173,16 +1173,16 @@ external_declaration
 
 namespace
   : NAMESPACE IDENTIFIER L_BRACE R_BRACE SEMICOLON {
-      return {ns = $2, list = {}}
+      return {ns = $2, list = {}, _m = m}
     }
   | NAMESPACE IDENTIFIER L_BRACE namespace_declaration R_BRACE SEMICOLON {
-      return {ns = $2, list = $4}
+      return {ns = $2, list = $4, _m = m}
     }
   ;
 
 namespace_declaration
   : external_declaration {
-      return {$1}
+      return {$1, _m = m}
     }
   | namespace_declaration external_declaration {
       $1[#$1+1] = $2
@@ -1192,7 +1192,7 @@ namespace_declaration
 
 interface_definition
   : INTERFACE IDENTIFIER L_BRACE interface_declaration interface_definition_block R_BRACE SEMICOLON {
-      return {iface = $2, idecl = $4, idef = $5}
+      return {iface = $2, idecl = $4, idef = $5, _m = m}
     }
   ;
 
@@ -1224,7 +1224,7 @@ method_definition
 
 function_specifier_list
   : function_specifier {
-      return {$1}
+      return {$1, _m = m}
     }
   | function_specifier_list function_specifier {
       $1[#$1+1] = $2
@@ -1246,29 +1246,29 @@ function_specifier
 
 function_definition
   : type_name IDENTIFIER L_PAREN R_PAREN compound_statement {
-      return {funcdef = $2, rctype = $1, list = {}, block = $5}
+      return {funcdef = $2, rctype = $1, list = {}, block = $5, _m = m}
     }
   | function_specifier_list type_name IDENTIFIER L_PAREN R_PAREN compound_statement {
-      return {spec = $1, funcdef = $3, rctype = $2, list = {}, block = $6}
+      return {spec = $1, funcdef = $3, rctype = $2, list = {}, block = $6, _m = m}
     }
   | type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement {
-      return {funcdef = $2, rctype = $1, list = $4, block = $6}
+      return {funcdef = $2, rctype = $1, list = $4, block = $6, _m = m}
     }
   | function_specifier_list type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN compound_statement {
-      return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7}
+      return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7, _m = m}
     }
 
   | type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON {
-      return {funcdef = $2, rctype = $1, list = {}, block = $5, forward = true}
+      return {funcdef = $2, rctype = $1, list = {}, block = $5, forward = true, _m = m}
     }
   | function_specifier_list type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON {
-      return {spec = $1, funcdef = $3, rctype = $2, list = {}, block = $6, forward = true}
+      return {spec = $1, funcdef = $3, rctype = $2, list = {}, block = $6, forward = true, _m = m}
     }
   | type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON {
-      return {funcdef = $2, rctype = $1, list = $4, block = $6, forward = true}
+      return {funcdef = $2, rctype = $1, list = $4, block = $6, forward = true, _m = m}
     }
   | function_specifier_list type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON {
-      return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7, forward = true}
+      return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7, forward = true, _m = m}
     }
   ;
 

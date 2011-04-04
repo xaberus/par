@@ -145,7 +145,7 @@ Type = Class("Type", {
                 quals.restrict = true
               else
                 dump(self, true)
-                tassert(nil, false)
+                tassert(env.loc[self], false, "AST/Type not reached")
               end
             end
           end
@@ -165,7 +165,7 @@ Type = Class("Type", {
               if n == "const" then
                 quals.const = true
               else
-                tassert(nil, false,
+                tassert(env.loc[self], false,
                   "qualifier '%s' is not valid in this context", n)
               end
             end
@@ -179,17 +179,17 @@ Type = Class("Type", {
           if not s then
             quals.flexible = true
           else
-            local expr = tassert(nil, Expression(env, s))
+            local expr = tassert(env.loc[self], Expression(env, s))
 
             if expr:is_constant() or env.kind == "block" then
               quals.size = expr
             elseif expr:is_symbol() then
-              local sym = tassert(nil, expr:symbol_eval(), "not a symbol?")
+              local sym = tassert(env.loc[self], expr:symbol_eval(), "not a symbol?")
               quals.size = expr
               quals.ref = sym.ref
               quals.vla = true
             else
-              tassert(tree_get_any_token(s), false,
+              tassert(env.loc[expr], false,
                 "invalid expression '%s' in this context", expr:repr(""))
             end
           end
@@ -221,7 +221,7 @@ Type = Class("Type", {
       elseif self.reg == "x" then
         ret = ret .. self.fixed
       elseif self.reg == "r" then
-        ret = ret .. self.id.value
+        ret = ret .. self.id
       elseif self.reg == "v" then
         ret = ret .. "void"
       elseif self.reg == "b" then
@@ -289,7 +289,7 @@ Type = Class("Type", {
     --dump({a,b}, true, nil, nil, "outref")
     --dump({a,b}, nil, nil, nil, "outref")
 
-    tassert(nil, a.complete and b.complete, "cannot compare incomplte types")
+    tassert(nil, a.complete and b.complete, "cannot compare incomplete types")
 
     if a.abs ~= b.abs then return false end
 
@@ -404,9 +404,7 @@ Type = Class("Type", {
 function(T, env, tree)
   --dump(tree, nil, nil, nil, "ctype")
 
-  local self = setmetatable({
-    qual = {}
-  }, T)
+  local self = mktab(env, tree, {qual = {}}, T)
 
   if tree.functype then
     self.reg = "c"
@@ -422,20 +420,20 @@ function(T, env, tree)
       if q.tag == "token" then
         local v = q.value
         if v == "const" then
-          tassert(nil, not self.qual.volatile, "const vs. volatile")
+          tassert(q, not self.qual.volatile, "const vs. volatile")
           self.qual.const = true
         elseif v == "volatile" then
-          tassert(nil, not self.qual.const, "volatile vs. const")
+          tassert(q, not self.qual.const, "volatile vs. const")
           self.qual.volatile = true
         elseif v == "restrict" then
-          tassert(nil, false, "restrict is only valid for pointers")
+          tassert(q, false, "restrict is only valid for pointers")
         else
           dump(self, true)
-          tassert(nil, false)
+          tassert(q, false, "AST/Type NIY")
         end
       else
         dump(self, true)
-        tassert(nil, false)
+        tassert(env.loc[self], false, "AST/Type not reached")
       end
     end
 
@@ -489,7 +487,7 @@ function(T, env, tree)
             self.reg = "r"
             self.ref = tassert(s, env:type_get_r(v), "reference to undefined type '%s'", v)
             --dump(self.ref)
-            self.id = s
+            self.id = v
             self.complete = true
             break
           end

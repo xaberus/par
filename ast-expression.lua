@@ -1,31 +1,34 @@
 Expression = Class("Expression", {
   h = {
     ["id"] = function(env, tree)
-      local self = setmetatable({identifier = tree.iden}, Expression)
-      local ref = tassert(self.identifier, env:sym_get_r(self.identifier.value),
-        "no symbol '" .. self.identifier.value .."' in same scope")
+      local v = tree.iden.value
+      local self = mktab(env, tree, {identifier = v}, Expression)
+      local ref = tassert(tree.iden, env:sym_get_r(v),
+        "no symbol '%s' in same scope", v)
       self.ref = ref
-      self.ctype = tassert(tree.iden, self:get_type(), "could not resolve type for '%s'", tree.iden.value)
+      self.ctype = tassert(tree.iden, self:get_type(), "could not resolve type for '%s'", v)
       return self
     end,
     ["c"] = function(env, tree)
       local c = tree.const
+      local self = mktab(env, tree, {ctype = Type.int_literal}, Expression)
       if c.oct then
-        local self = {constant = c.oct, kind = "oct", ctype = Type.int_literal}
-        return self
+        self.constant = c.oct.value
+        self.kind = "oct"
       elseif c.dec then
-        local self = {constant = c.dec, kind = "dec", ctype = Type.int_literal}
-        return self
+        self.constant = c.dec.value
+        self.kind = "dec"
       elseif c.hex then
-        local self = {constant = c.hex, kind = "hex", ctype = Type.int_literal}
-        return self
+        self.constant = c.hex.value
+        self.kind = "hex"
       elseif c.char then
-        local self = {constant = c.char, kind = "char", ctype = Type.char_literal}
-        return self
+        self.constant = c.char.value
+        self.kind = "char"
       elseif c.string then
-        local self = {constant = c.string, kind = "string", ctype = Type.cstr_literal}
-        return self
+        self.constant = c.string.value
+        self.kind = "string"
       end
+      return self
     end,
     -- ["self"]
     ["l"] = function(env, tree)
@@ -34,233 +37,232 @@ Expression = Class("Expression", {
         list[#list+1] = Expression(env, v)
       end
       --tassert(nil, #list > 0, "empty expression list") TODO
-      local self = {list = list}
+      local self = mktab(env, tree, {list = list}, Expression)
       return self
     end,
     ["d"] = function(env, tree)
       local a = Expression(env, tree.dot)
-      local b = tree.iden
+      local b = tree.iden.value
 
       local t, s = a:get_struct(env)
 
       --dump(t, true)
 
-      local r = tassert(b, t and s, "%s is neither a struct not an union", a:repr("")):dereference()
-
-      local f = tassert(b, r:get_field(b.value), "no field %s in:\n%s", b.value, "  " .. r:repr("  "))
+      local r = tassert(tree.iden, t and s, "%s is neither a struct not an union", a:repr("")):dereference()
+      local f = tassert(tree.iden, r:get_field(b), "no field %s in:\n%s", b, "  " .. r:repr("  "))
 
       --tassert(b, false, "FOP")
 
-      local self = {op = 'acc', a = Expression(env, tree.dot), b = tree.iden, ctype = f.ctype}
+      local self = mktab(env, tree, {op = 'acc', a = Expression(env, tree.dot), b = b, ctype = f.ctype}, Expression)
       return self
     end,
 
     -------- binary op ---------
     ["op_shl"] = function(env, tree)
-      local self = {op = 'shl', a = Expression(env, tree.shl), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'shl', a = Expression(env, tree.shl), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_shr"] = function(env, tree)
-      local self = {op = 'shr', a = Expression(env, tree.shr), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'shr', a = Expression(env, tree.shr), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_bnot"] = function(env, tree)
-      local self = {op = 'bnot', a = Expression(env, tree.bnot)}
+      local self = mktab(env, tree, {op = 'bnot', a = Expression(env, tree.bnot)}, Expression)
       return self
     end,
     ["op_band"] = function(env, tree)
-      local self = {op = 'band', a = Expression(env, tree.band), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'band', a = Expression(env, tree.band), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_bor"] = function(env, tree)
-      local self = {op = 'bor', a = Expression(env, tree.bor), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'bor', a = Expression(env, tree.bor), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_bxor"] = function(env, tree)
-      local self = {op = 'bxor', a = Expression(env, tree.bxor), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'bxor', a = Expression(env, tree.bxor), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     ["op_shlasgn"] = function(env, tree)
-      local self = {op = 'shl_asgn', a = Expression(env, tree.shl_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'shl_asgn', a = Expression(env, tree.shl_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_shrasgn"] = function(env, tree)
-      local self = {op = 'shr_asgn', a = Expression(env, tree.shr_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'shr_asgn', a = Expression(env, tree.shr_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_bandasgn"] = function(env, tree)
-      local self = {op = 'band_asgn', a = Expression(env, tree.band_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'band_asgn', a = Expression(env, tree.band_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_borasgn"] = function(env, tree)
-      local self = {op = 'bor_asgn', a = Expression(env, tree.bor_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'bor_asgn', a = Expression(env, tree.bor_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_bxorasgn"] = function(env, tree)
-      local self = {op = 'bxor_asgn', a = Expression(env, tree.bxor_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'bxor_asgn', a = Expression(env, tree.bxor_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     -------- logical op ---------
     ["op_lnot"] = function(env, tree)
-      local self = {op = 'lnot', a = Expression(env, tree.lnot)}
+      local self = mktab(env, tree, {op = 'lnot', a = Expression(env, tree.lnot)}, Expression)
       return self
     end,
     ["op_land"] = function(env, tree)
-      local self = {op = 'land', a = Expression(env, tree.land), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'land', a = Expression(env, tree.land), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_lor"] = function(env, tree)
-      local self = {op = 'lor', a = Expression(env, tree.lor), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'lor', a = Expression(env, tree.lor), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     -------- comparison op ---------
     ["op_ne"] = function(env, tree)
-      local self = {op = 'ne', a = Expression(env, tree.ne), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'ne', a = Expression(env, tree.ne), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_eq"] = function(env, tree)
-      local self = {op = 'eq', a = Expression(env, tree.eq), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'eq', a = Expression(env, tree.eq), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_ls"] = function(env, tree)
-      local self = {op = 'ls', a = Expression(env, tree.ls), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'ls', a = Expression(env, tree.ls), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_gt"] = function(env, tree)
-      local self = {op = 'gt', a = Expression(env, tree.gt), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'gt', a = Expression(env, tree.gt), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_le"] = function(env, tree)
-      local self = {op = 'le', a = Expression(env, tree.le), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'le', a = Expression(env, tree.le), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_ge"] = function(env, tree)
-      local self = {op = 'ge', a = Expression(env, tree.ge), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'ge', a = Expression(env, tree.ge), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     -------- unary op ---------
     ["op_unp"] = function(env, tree)
-      local self = {op = 'unp', a = Expression(env, tree.unp)}
+      local self = mktab(env, tree, {op = 'unp', a = Expression(env, tree.unp)}, Expression)
       return self
     end,
     ["op_unm"] = function(env, tree)
-      local self = {op = 'unm', a = Expression(env, tree.unm)}
+      local self = mktab(env, tree, {op = 'unm', a = Expression(env, tree.unm)}, Expression)
       return self
     end,
     ["op_udec"] = function(env, tree)
-      local self = {op = 'udec', a = Expression(env, tree.udec)}
+      local self = mktab(env, tree, {op = 'udec', a = Expression(env, tree.udec)}, Expression)
       return self
     end,
     ["op_uinc"] = function(env, tree)
-      local self = {op = 'uinc', a = Expression(env, tree.uinc)}
+      local self = mktab(env, tree, {op = 'uinc', a = Expression(env, tree.uinc)}, Expression)
       return self
     end,
 
     -------- math op ---------
     ["op_add"] = function(env, tree)
-      local self = {op = 'add', a = Expression(env, tree.add), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'add', a = Expression(env, tree.add), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_sub"] = function(env, tree)
-      local self = {op = 'sub', a = Expression(env, tree.sub), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'sub', a = Expression(env, tree.sub), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_mul"] = function(env, tree)
-      local self = {op = 'mul', a = Expression(env, tree.mul), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'mul', a = Expression(env, tree.mul), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_div"] = function(env, tree)
-      local self = {op = 'div', a = Expression(env, tree.div), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'div', a = Expression(env, tree.div), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_mod"] = function(env, tree)
-      local self = {op = 'mod', a = Expression(env, tree.mod), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'mod', a = Expression(env, tree.mod), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     ["op_addasgn"] = function(env, tree)
-      local self = {op = 'add_asgn', a = Expression(env, tree.add_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'add_asgn', a = Expression(env, tree.add_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_subasgn"] = function(env, tree)
-      local self = {op = 'sub_asgn', a = Expression(env, tree.sub_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'sub_asgn', a = Expression(env, tree.sub_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_mulasgn"] = function(env, tree)
-      local self = {op = 'mul_asgn', a = Expression(env, tree.mul_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'mul_asgn', a = Expression(env, tree.mul_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_divasgn"] = function(env, tree)
-      local self = {op = 'div_asgn', a = Expression(env, tree.div_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'div_asgn', a = Expression(env, tree.div_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
     ["op_modasgn"] = function(env, tree)
-      local self = {op = 'mod_asgn', a = Expression(env, tree.mod_asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'mod_asgn', a = Expression(env, tree.mod_asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     ["op_inc"] = function(env, tree)
-      local self = {op = 'inc', a = Expression(env, tree.inc)}
+      local self = mktab(env, tree, {op = 'inc', a = Expression(env, tree.inc)}, Expression)
       return self
     end,
     ["op_dec"] = function(env, tree)
-      local self = {op = 'dec', a = Expression(env, tree.dec)}
+      local self = mktab(env, tree, {op = 'dec', a = Expression(env, tree.dec)}, Expression)
       return self
     end,
 
     -------- c op ---------
     ["op_asgn"] = function(env, tree)
-      local self = {op = 'asgn', a = Expression(env, tree.asgn), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'asgn', a = Expression(env, tree.asgn), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
 
     ["op_deref"] = function(env, tree)
-      local self = {op = 'deref', a = Expression(env, tree.deref)}
+      local self = mktab(env, tree, {op = 'deref', a = Expression(env, tree.deref)}, Expression)
       return self
     end,
 
     ["cast"] = function(env, tree)
-      local self = {op = 'cast', a = Expression(env, tree.cast), b = Type(env, tree.ctype)}
+      local self = mktab(env, tree, {op = 'cast', a = Expression(env, tree.cast), b = Type(env, tree.ctype)}, Expression)
       return self
     end,
 
     ["op_sizeof"] = function(env, tree)
-      local self = {op = 'sizeof', a = Expression(env, tree.sizeof)}
+      local self = mktab(env, tree, {op = 'sizeof', a = Expression(env, tree.sizeof)}, Expression)
       return self
     end,
     ["op_fsizeof"] = function(env, tree)
-      local self = {op = 'fsizeof', a = Type(env, tree.fsizeof)}
+      local self = mktab(env, tree, {op = 'fsizeof', a = Type(env, tree.fsizeof)}, Expression)
       return self
     end,
 
     ["cond"] = function(env, tree)
-      local self = {op = 'cond', a = Expression(env, tree.cond), b = Expression(env, tree.texpr), c = Expression(env, tree.fexpr)}
+      local self = mktab(env, tree, {op = 'cond', a = Expression(env, tree.cond), b = Expression(env, tree.texpr), c = Expression(env, tree.fexpr)}, Expression)
       return self
     end,
 
     --["op_acc_ptrderef"]
 
     ["op_addr"] = function(env, tree)
-      local self = {op = 'addr', a = Expression(env, tree.addr)}
+      local self = mktab(env, tree, {op = 'addr', a = Expression(env, tree.addr)}, Expression)
       return self
     end,
 
     ["par"] = function(env, tree)
-      local self = {op = 'par', a = Expression(env, tree.par)}
+      local self = mktab(env, tree, {op = 'par', a = Expression(env, tree.par)}, Expression)
       return self
     end,
 
     ["call"] = function(env, tree)
-      local self = {op = 'call', a = Expression(env, tree.call), b = Expression(env, tree.args)}
+      local self = mktab(env, tree, {op = 'call', a = Expression(env, tree.call), b = Expression(env, tree.args)}, Expression)
       return self
     end,
 
     ["idx"] = function(env, tree)
-      local self = {op = 'index', a = Expression(env, tree.index), b = Expression(env, tree.expr)}
+      local self = mktab(env, tree, {op = 'index', a = Expression(env, tree.index), b = Expression(env, tree.expr)}, Expression)
       return self
     end,
   },
@@ -270,7 +272,7 @@ Expression = Class("Expression", {
       return Type.bool_res
     end,
     ["shr"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["deref"] = function(self, env)
       return self.a:get_type():strip_pointer()
@@ -297,10 +299,10 @@ Expression = Class("Expression", {
       return self.a:get_type()
     end,
     ["shl"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["div"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["ge"] = function(self, env)
       return Type.bool_res
@@ -309,13 +311,13 @@ Expression = Class("Expression", {
       return self.a:get_type()
     end,
     ["mul"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["bor_asgn"] = function(self, env)
       return self.a:get_type(env)
     end,
     ["band"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["cond"] = function(self, env)
       -- TODO
@@ -356,16 +358,16 @@ Expression = Class("Expression", {
       return self.a:get_type(env)
     end,
     ["par"] = function(self, env)
-      return tassert(nil, self.a:get_type(), "PAR")
+      return tassert(env.loc[self], self.a:get_type(), "PAR")
     end,
     ["mod"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["unm"] = function(self, env)
       return self.a:get_type()
     end,
     ["sub"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["div_asgn"] = function(self, env)
     end,
@@ -376,7 +378,7 @@ Expression = Class("Expression", {
       return Type.bool_res
     end,
     ["bor"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["sub_asgn"] = function(self, env)
       return self.a:get_type(env)
@@ -385,7 +387,7 @@ Expression = Class("Expression", {
       return Type.bool_res
     end,
     ["bxor"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
     ["acc"] = function(self, env)
       --return self.a:get_type(env)
@@ -398,7 +400,7 @@ Expression = Class("Expression", {
       if not fn.rctype then
         dump(fn, true)
       end
-      return tassert(nil, fn.rctype, "CALL")
+      return tassert(env.loc[self], fn.rctype, "CALL")
     end,
     ["add_asgn"] = function(self, env)
       return self.a:get_type(env)
@@ -407,7 +409,7 @@ Expression = Class("Expression", {
       return self.a:get_type()
     end,
     ["add"] = function(self, env)
-      return tassert(nil, Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
+      return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")
     end,
   },
 
@@ -537,7 +539,7 @@ Expression = Class("Expression", {
       return a:repr(indent) .. " ^ " .. b:repr(indent)
     end,
     ["acc"] = function(self, op, a, b, c, indent)
-      return a:repr(indent) .. "." .. b.value
+      return a:repr(indent) .. "." .. b
     end,
     ["dec"] = function(self, op, a, b, c, indent)
       return a:repr(indent) .. "--"
@@ -572,7 +574,7 @@ Expression = Class("Expression", {
     end
   end,
 
-  finr = function(self, k, env)
+  finr = function(self, env)
     if self.op and not self.ctype then
       local fn = self.opth[self.op]
       local r = fn(self, env)
@@ -585,10 +587,10 @@ Expression = Class("Expression", {
 
   repr = function(self, indent)
     if self.identifier then
-      return self.identifier.value
+      return self.identifier
       --return  "(" .. self.ctype:repr(nil).. ")(" .. self.identifier.value .. ")"
     elseif self.constant then
-      return  self.constant.value
+      return  self.constant
       --return  "(" .. self.ctype:repr(indent).. ")(" .. self.constant.value .. ")"
     elseif self.list then
         local tab = {}
@@ -649,7 +651,7 @@ Expression = Class("Expression", {
 },
 function(E, env, tree)
   --dump(tree)
-  local ret = setmetatable(E.h[tree.k](env, tree), E)
+  local ret = E.h[tree.k](env, tree)
   ret:finr(env);
   return ret
 end)

@@ -1,17 +1,19 @@
 Namespace = Class("Namespace", {
-  constructor = function(env, tree)
-    --dump(tree, nil, nil, nil, "stmt")
-
-    local self = {}
-    local env = env:ns_reg(tree.ns.value, self)
-
-    self.id = tree.ns
-    self.src = Source(env, tree.list)
-
-    return self
-  end,
   repr = function(self, indent)
-    return indent .. "namespace " .. self.id.value .. " {\n" .. self.src:repr(indent .. "  ") .. indent .. "};\n"
+    return indent .. "namespace " .. self.id .. " {\n" .. self.src:repr(indent .. "  ") .. indent .. "};\n"
   end,
-})
+},
+function(N, env, tree)
+  --dump(tree, nil, nil, nil, "stmt")
+
+  local self = mktab(env, tree, {}, N)
+  local v = tree.ns.value
+
+  local env = env:ns_reg(v, self)
+
+  self.id = v
+  self.src = Source(env, tree.list)
+
+  return self
+end)
 

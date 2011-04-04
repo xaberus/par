@@ -794,8 +794,23 @@ token_merger = function(...)
         if tline < line then line = tline end
         if tte > ts then te = tte end
       end
+    elseif t._m then
+      local m = t._m
+      local tts, tte, tline = m._ts, m._te, m._line
+      if tts then
+        if not ts then
+          ts = tts
+          te = tte
+          line = tline
+        else
+          if tts < ts then ts = tts end
+          if tline < line then line = tline end
+          if tte > ts then te = tte end
+        end
+      end
     end
   end
+  return {_ts = ts, _te = te, _line = line}
 end
 
 
