@@ -175,19 +175,19 @@ tokens {
 
 primary_expression
   : IDENTIFIER {
-      return {iden = $1}
+      return {k = "id", iden = $1}
     }
   | SELF {
-      return {self = "self"}
+      return {k = "self", self = "self"}
     }
   | constant {
-      return {const = $1}
+      return {k = "c", const = $1}
     }
   | L_PAREN expression R_PAREN {
-      return {par = $2}
+      return {k = "par", par = $2}
     }
   | L_PAREN compound_statement R_PAREN {
-      return {compound = $2}
+      return {k = "comp", compound = $2}
     }
   ;
 
@@ -217,29 +217,29 @@ postfix_expression
       return $1
     }
   | postfix_expression L_BRACKET expression R_BRACKET {
-      return {index = $1, expr = $3}
+      return {k = "idx", index = $1, expr = $3}
     }
   | postfix_expression L_PAREN R_PAREN {
-      return {call = $1, args = {list={}}}
+      return {k = "call", call = $1, args = {k = "l", list = {}}}
     }
   | postfix_expression L_PAREN argument_expression_list R_PAREN {
-      return {call = $1, args = {list=$3}}
+      return {k = "call", call = $1, args = {k = "l", list=$3}}
     }
   | postfix_expression DOT IDENTIFIER {
-      return {dot = $1, iden = $3}
+      return {k = "d", dot = $1, iden = $3}
     }
   /*| postfix_expression PTR_OP IDENTIFIER*/
   | postfix_expression INC_OP {
-      return {inc = $1}
+      return {k = "op_inc", inc = $1}
     }
   | postfix_expression DEC_OP {
-      return {dec = $1}
+      return {k = "op_dec", dec = $1}
     }
   | L_PAREN type_name R_PAREN L_BRACE initializer_list R_BRACE {
-      return {tc = $2, list = $5}
+      return {k = "tc", tc = $2, list = $5}
     }
   | L_PAREN type_name R_PAREN L_BRACE initializer_list COMMA R_BRACE {
-      return {tc = $2, list = $5}
+      return {k = "tc", tc = $2, list = $5}
     }
   ;
 
@@ -258,34 +258,34 @@ unary_expression
       return $1
     }
   | INC_OP unary_expression {
-      return {uinc = $2}
+      return {k = "op_uinc", uinc = $2}
     }
   | DEC_OP unary_expression {
-      return {udec = $2}
+      return {k = "op_denc", udec = $2}
     }
   | AMPERSAND cast_expression {
-      return {addr = $2}
+      return {k = "op_addr", addr = $2}
     }
   | STAR cast_expression {
-      return {deref = $2}
+      return {k = "op_deref", deref = $2}
     }
   | PLUS cast_expression {
-      return {unp = $2}
+      return {k = "op_unp", unp = $2}
     }
   | MINUS cast_expression {
-      return {unm = $2}
+      return {k = "op_unm", unm = $2}
     }
   | TILDE cast_expression {
-      return {bnot = $2}
+      return {k = "op_bnot", bnot = $2}
     }
   | EXCLAMATION cast_expression {
-      return {lnot = $2}
+      return {k = "op_lnot", lnot = $2}
     }
   | SIZEOF unary_expression {
-      return {sizeof = $2}
+      return {k = "op_sizeof", sizeof = $2}
     }
   | SIZEOF L_PAREN type_name R_PAREN {
-      return {fsizeof = $3}
+      return {k = "op_fsizeof", fsizeof = $3}
     }
   ;
 
@@ -294,7 +294,7 @@ cast_expression
       return $1
     }
   | L_PAREN type_name R_PAREN cast_expression {
-      return {cast = $4, ctype = $2}
+      return {k = "cast", cast = $4, ctype = $2}
     }
   ;
 
@@ -304,13 +304,13 @@ multiplicative_expression
       return $1
     }
   | multiplicative_expression STAR cast_expression {
-      return {mul = $1, expr = $3}
+      return {k = "op_mul", mul = $1, expr = $3}
     }
   | multiplicative_expression SLASH cast_expression {
-      return {div = $1, expr = $3}
+      return {k = "op_div", div = $1, expr = $3}
     }
   | multiplicative_expression PERCENT cast_expression {
-      return {mod = $1, expr = $3}
+      return {k = "op_mod", mod = $1, expr = $3}
     }
   ;
 
@@ -319,10 +319,10 @@ additive_expression
       return $1
     }
   | additive_expression PLUS multiplicative_expression {
-      return {add = $1, expr = $3}
+      return {k = "op_add", add = $1, expr = $3}
     }
   | additive_expression MINUS multiplicative_expression {
-      return {sub = $1, expr = $3}
+      return {k = "op_sub", sub = $1, expr = $3}
     }
   ;
 
@@ -331,10 +331,10 @@ shift_expression
       return $1
     }
   | shift_expression LEFT_OP additive_expression {
-      return {shl = $1, expr = $3}
+      return {k = "op_shl", shl = $1, expr = $3}
     }
   | shift_expression RIGHT_OP additive_expression {
-      return {shr = $1, expr = $3}
+      return {k = "op_shr", shr = $1, expr = $3}
     }
   ;
 
@@ -343,16 +343,16 @@ relational_expression
       return $1
     }
   | relational_expression LESS shift_expression {
-      return {ls = $1, expr = $3}
+      return {k = "op_ls", ls = $1, expr = $3}
     }
   | relational_expression GREATER shift_expression {
-      return {gt = $1, expr = $3}
+      return {k = "op_gt", gt = $1, expr = $3}
     }
   | relational_expression LE_OP shift_expression {
-      return {le = $1, expr = $3}
+      return {k = "op_le", le = $1, expr = $3}
     }
   | relational_expression GE_OP shift_expression {
-      return {ge = $1, expr = $3}
+      return {k = "op_ge", ge = $1, expr = $3}
     }
   ;
 
@@ -361,10 +361,10 @@ equality_expression
       return $1
     }
   | equality_expression EQ_OP relational_expression {
-      return {eq = $1, expr = $3}
+      return {k = "op_eq", eq = $1, expr = $3}
     }
   | equality_expression NE_OP relational_expression {
-      return {ne = $1, expr = $3}
+      return {k = "op_ne", ne = $1, expr = $3}
     }
   ;
 
@@ -373,7 +373,7 @@ and_expression
       return $1
     }
   | and_expression AMPERSAND equality_expression {
-      return {band = $1, expr = $3}
+      return {k = "op_band", band = $1, expr = $3}
     }
   ;
 
@@ -382,7 +382,7 @@ exclusive_or_expression
       return $1
     }
   | exclusive_or_expression CIRCUMFLEX and_expression {
-      return {bxor = $1, expr = $3}
+      return {k = "op_bxor", bxor = $1, expr = $3}
     }
   ;
 
@@ -391,7 +391,7 @@ inclusive_or_expression
       return $1
     }
   | inclusive_or_expression PIPE exclusive_or_expression {
-      return {bor = $1, expr = $3}
+      return {k = "op_bor", bor = $1, expr = $3}
     }
   ;
 
@@ -400,7 +400,7 @@ logical_and_expression
       return $1
     }
   | logical_and_expression AND_OP inclusive_or_expression {
-      return {land = $1, expr = $3}
+      return {k = "op_land", land = $1, expr = $3}
     }
   ;
 
@@ -409,7 +409,7 @@ logical_or_expression
       return $1
     }
   | logical_or_expression OR_OP logical_and_expression {
-      return {lor = $1, expr = $3}
+      return {k = "op_lor", lor = $1, expr = $3}
     }
   ;
 
@@ -418,7 +418,7 @@ conditional_expression
       return $1
     }
   | logical_or_expression QUESTION expression COLON conditional_expression {
-      return {cond = $1, texpr = $3, fexpr = $5}
+      return {k = "cond", cond = $1, texpr = $3, fexpr = $5}
     }
   ;
 
@@ -427,43 +427,43 @@ assignment_expression
       return $1
     }
   | unary_expression ASSIGN assignment_expression {
-      return {asgn = $1, expr = $3}
+      return {k = "op_asgn", asgn = $1, expr = $3}
     }
   | unary_expression MUL_ASSIGN assignment_expression {
-      return {mul_asgn = $1, expr = $3}
+      return {k = "op_mulasgn", mul_asgn = $1, expr = $3}
     }
   | unary_expression DIV_ASSIGN assignment_expression {
-      return {div_asgn = $1, expr = $3}
+      return {k = "op_divasgn", div_asgn = $1, expr = $3}
     }
   | unary_expression MOD_ASSIGN assignment_expression {
-      return {mod_asgn = $1, expr = $3}
+      return {k = "op_modasgn", mod_asgn = $1, expr = $3}
     }
   | unary_expression ADD_ASSIGN assignment_expression {
-      return {add_asgn = $1, expr = $3}
+      return {k = "op_addasgn", add_asgn = $1, expr = $3}
     }
   | unary_expression SUB_ASSIGN assignment_expression {
-      return {sub_asgn = $1, expr = $3}
+      return {k = "op_subasgn", sub_asgn = $1, expr = $3}
     }
   | unary_expression LEFT_ASSIGN assignment_expression {
-      return {shl_asgn = $1, expr = $3}
+      return {k = "op_shlasgn", shl_asgn = $1, expr = $3}
     }
   | unary_expression RIGHT_ASSIGN assignment_expression {
-      return {shr_asgn = $1, expr = $3}
+      return {k = "op_shrasgn", shr_asgn = $1, expr = $3}
     }
   | unary_expression AND_ASSIGN assignment_expression {
-      return {band_asgn = $1, expr = $3}
+      return {k = "op_bandasgn", band_asgn = $1, expr = $3}
     }
   | unary_expression XOR_ASSIGN assignment_expression {
-      return {bxor_asgn = $1, expr = $3}
+      return {k = "op_bxorasgn", bxor_asgn = $1, expr = $3}
     }
   | unary_expression OR_ASSIGN assignment_expression {
-      return {bor_asgn = $1, expr = $3}
+      return {k = "op_borasgn", bor_asgn = $1, expr = $3}
     }
   ;
 
 expression
   : assignment_expression {
-      return {list = {$1}}
+      return {k = "l", list = {$1}}
     }
   | expression COMMA assignment_expression {
       $1.list[#$1.list+1] = $3
@@ -750,7 +750,7 @@ pointer
       return {{}}
     }
   | STAR type_qualifier_list {
-      return {{qual = $1}}
+      return {{qual = $2}}
     }
   | STAR pointer {
       return merge({{}}, $2)

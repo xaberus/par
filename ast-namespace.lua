@@ -1,10 +1,9 @@
 Namespace = Class("Namespace", {
   constructor = function(env, tree)
     --dump(tree, nil, nil, nil, "stmt")
-    local env = env:child("ns")
-    local self = {}
 
-    self.env = env
+    local self = {}
+    local env = env:ns_reg(tree.ns.value, self)
 
     self.id = tree.ns
     self.src = Source(env, tree.list)

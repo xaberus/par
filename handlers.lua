@@ -5,10 +5,15 @@ local M = {
   dump = dump,
   ipairs = ipairs,
   pairs = pairs,
+  getmetatable = getmetatable,
   setmetatable = setmetatable,
   type = type,
   concat = table.concat,
   next = next,
+  remove = table.remove,
+  format = string.format,
+  -- not needed
+  print = print
 }
 
 M.tassert = function(token, cond, message, ...)

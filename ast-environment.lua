@@ -30,11 +30,16 @@ Environment = Class("Environment", {
       return self.parent:sym_get_r(id)
     end
 
-    return s
+    if s then
+      return s.sym
+    end
   end,
   sym_get = function(self, id)
     if not self.syms then return nil end
-    return self.syms[id]
+    local s = self.syms[id]
+    if s then
+      return s.sym
+    end
   end,
 
 
@@ -57,6 +62,7 @@ Environment = Class("Environment", {
       return self.parent:struct_get_r(id)
     end
 
+    -- TODO remove cruft
     return s
   end,
   struct_get = function(self, id)
@@ -83,11 +89,16 @@ Environment = Class("Environment", {
       return self.parent:enum_get_r(id)
     end
 
-    return e
+    if e then
+      return e.decl
+    end
   end,
   enum_get = function(self, id)
     if not self.enums then return nil end
-    return self.enums[id]
+    local e = self.enums[id]
+    if e then
+      return e.decl
+    end
   end,
 
 
@@ -109,18 +120,20 @@ Environment = Class("Environment", {
       return self.parent:type_get_r(id)
     end
 
-    return t
+    if t then
+      return t.t
+    end
   end,
 
-  label_reg = function(self, id, t)
+  label_reg = function(self, id, l)
     if not self.labels then
       self.labels = {}
     else
       tassert(nil, not self.labels[id], "label redefined in same scope")
     end
-    local t = {t = t}
-    self.labels[id] = t
-    return t
+    local l = {l = l}
+    self.labels[id] = l
+    return l
   end,
 
   label_get = function(self, id)
@@ -128,17 +141,43 @@ Environment = Class("Environment", {
     return self.labels[id]
   end,
   label_get_r = function(self, id)
-    local t = self.labels and self.labels[id] or nil
+    local l = self.labels and self.labels[id] or nil
 
-    if not t and self.parent then
+    if not l and self.parent then
       local k = self.parent.kind
       if k == "block" or k == "loop" then
         return self.parent:label_get_r(id)
       end
     end
 
-    return t
+    return l
   end,
+
+  ns_reg = function(self, id)
+    if not self.nss then
+      self.nss = {}
+    end
+
+    local ns = self.nss[id]
+    if self.nss[id] then
+      return ns.env
+    else
+      local ns = {env = self:child("ns")}
+      self.nss[id] = ns
+      return ns.env
+    end
+  end,
+
+  ns_get_r = function(self, id)
+    local ns = self.nss and self.nss[id] or nil
+
+    if not ns and self.parent then
+      return self.parent:ns_get_r(id)
+    end
+
+    return ns.env
+  end,
+
 
 })
 

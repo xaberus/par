@@ -48,7 +48,7 @@ function table_show(t, name, indent)
               --table.concat({" (id:", value.id, ", line:", value._line,")"})
               ""
               )
-          elseif value.repr then
+          elseif value.repr and type(value.repr) == "function" then
             cart = cart .. string.format(" = [1;34m%s[0;m\n", value:repr(indent))
           else
             if value.kind then

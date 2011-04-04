@@ -12,6 +12,9 @@ Declarator = Class("Declarator", {
 
     return self
   end,
+  get_type = function(self)
+    return self.ctype
+  end,
 })
 
 Declaration = Class("Declaration", {

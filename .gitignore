@@ -3,7 +3,6 @@ CMakeCache.txt
 Makefile
 cmake_install.cmake
 lexer.c
-par
 parser.c
 parser.h
 parser.lua

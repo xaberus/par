@@ -1,0 +1,73 @@
+#!/usr/bin/luajit
+
+require "dump"
+
+local Class = require "class"
+local AST = require "handlers"
+
+Parser = Class("Parser", {
+  constructor = function(src)
+    local self = {
+      src = io.input(src):read("*a"),
+      running = true,
+      pos = 1,
+      rt = {line = 1},
+      env = {
+        global = AST.Environment(),
+      },
+      parse = parse,
+    }
+    self.env.current = self.env.global
+    return self
+  end,
+  errf = function(err)
+    print(debug.traceback())
+    print(err)
+  end,
+  penv = assert(require "parser"),
+  lex = assert(require "lexer"),
+  parse = assert(require "libclex_parse"),
+})
+
+local p, tree = Parser(arg[1] or "test.in"):parse()
+
+local stat, err = xpcall(
+  function()
+    local ast = AST.Source(p.env.current, tree)
+    print(ast:repr(""))
+  end,
+  function(err)
+    return {err, debug.traceback()}
+  end)
+
+if not stat then
+  local res, tbk = unpack(err)
+  if type(res) == "table" then
+    --dump(res)
+    local tok, msg = unpack(res)
+    msg = msg or "<N/I>"
+    if tok then
+      local ls = tok._ts
+      local le = tok._te
+      while ls > 1 do
+        if p.src:byte(ls) == 10 then
+          break
+        end
+        ls = ls - 1
+      end
+      while le < #p.src do
+        if p.src:byte(le) == 10 then
+          break
+        end
+        le = le + 1
+      end
+      print(string.format("error:<infile>:%d: %s\n%s", tok._line, p.src:sub(ls+1, le-1), msg))
+    else
+      print("error: " .. msg)
+    end
+  else
+    print("error: " .. res)
+  end
+  print(tbk)
+end
+

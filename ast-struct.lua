@@ -7,14 +7,14 @@ StructDeclarator = Class("StructDeclarator", {
       local expr = Expression(env, tree.width)
       tassert(nil, expr:is_constant())
       self.width = expr
-      tassert(nil, ctype.reg == "i")
+      tassert(nil, ctype.reg == "x", "only integer types can have a width")
       tassert(nil, not ctype.abs)
     end
     tassert(nil, scope)
     tassert(nil, not scope[tree.iden.value], "field %s already defined in this scope", tree.iden.value)
 
     self.id = tree.iden
-    scope[self.id.value] = {self, struct}
+    scope[self.id.value] = {field = self, struct = struct}
     self.ctype = ctype
 
     return self
@@ -131,19 +131,39 @@ Struct = Class("Struct", {
         tab[#tab+1] = " "
       end
 
-      tab[#tab+1] = "{\n"
 
-      do
-        local indent1 = indent .. "  "
-        for k,v in ipairs(self) do
-          tab[#tab+1] = v:repr(indent1)
+      if indent then
+        tab[#tab+1] = "{\n"
+
+        do
+          local indent1 = indent .. "  "
+          for k,v in ipairs(self) do
+            tab[#tab+1] = v:repr(indent1)
+          end
         end
+
+        tab[#tab+1] = indent
+        tab[#tab+1] = "}"
+      else
+        -- not in source
       end
-
-      tab[#tab+1] = indent
-      tab[#tab+1] = "}"
-
     end
     return concat(tab, "")
   end,
+
+  dereference = function(self)
+    if self.ref then
+      return self.ref.decl
+    else
+      return self
+   end
+  end,
+
+  get_field = function(self, fid)
+    local e = self.scope[fid]
+    if e then return
+      e.field
+    end
+  end,
+
 })
