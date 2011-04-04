@@ -384,7 +384,7 @@ Type = Class("Type", {
     if self.abs then
       if self.array then
         local t = deepcopy(self)
-        for k, a in ipairs(self.array) do
+        for k, a in ipairs(t.array) do
           if a.vla then
             a.size = nil
             a.ref = nil
