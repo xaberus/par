@@ -585,11 +585,11 @@ Expression = Class("Expression", {
 
   repr = function(self, indent)
     if self.identifier then
-      --return self.identifier.value
-      return  "(" .. self.ctype:repr(nil).. ")(" .. self.identifier.value .. ")"
+      return self.identifier.value
+      --return  "(" .. self.ctype:repr(nil).. ")(" .. self.identifier.value .. ")"
     elseif self.constant then
-      --return  self.constant.value
-      return  "(" .. self.ctype:repr(indent).. ")(" .. self.constant.value .. ")"
+      return  self.constant.value
+      --return  "(" .. self.ctype:repr(indent).. ")(" .. self.constant.value .. ")"
     elseif self.list then
         local tab = {}
         for k,v in ipairs(self.list) do
@@ -605,7 +605,8 @@ Expression = Class("Expression", {
       if not self.ctype.repr then
         dump(self.ctype, true, nil, nil, "FUU")
       end
-      return "(" .. self.ctype:repr(nil).. ")(" .. self.reprh[self.op](self, op, a, b, c, indent) .. ")"
+      return self.reprh[self.op](self, op, a, b, c, indent)
+      --return "(" .. self.ctype:repr(nil).. ")(" .. self.reprh[self.op](self, op, a, b, c, indent) .. ")"
     end
 
     dump(self, true)
