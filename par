@@ -4,6 +4,7 @@ require "dump"
 
 local Class = require "class"
 local AST = require "handlers"
+local CPR = require "cpr"
 
 Parser = Class("Parser", {
   constructor = function(src)
@@ -31,9 +32,11 @@ Parser = Class("Parser", {
 
 local p, tree = Parser(arg[1] or "test.in"):parse()
 
+local ast
+
 local stat, err = xpcall(
   function()
-    local ast = AST.Source(p.env.current, tree)
+    ast = AST.Source(p.env.current, tree)
     print(ast:repr(""))
   end,
   function(err)
@@ -70,4 +73,7 @@ if not stat then
   end
   print(tbk)
 end
+
+--local cpr = CPR.Source(ast)
+--print(cpr:cpr(""))
 
