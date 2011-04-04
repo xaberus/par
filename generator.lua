@@ -779,6 +779,26 @@ local function merge(tab, atab)
   return tab
 end
 
+token_merger = function(...)
+  local tree = {...}
+  local ts, te, line
+  for k, t in pairs(tree) do
+    if t.tag then
+      local tts, tte, tline = t._ts, t._te, t._line
+      if not ts then
+        ts = tts
+        te = tte
+        line = tline
+      else
+        if tts < ts then ts = tts end
+        if tline < line then line = tline end
+        if tte > ts then te = tte end
+      end
+    end
+  end
+end
+
+
 local M = {}
 
 ]]
@@ -799,6 +819,7 @@ local M = {}
           write("--   %s %s\n", j==1 and ":" or "|", strrule(lparts))
           if #lparts > 0 then
             write("  local %s = ...\n", table.concat(mparts, ","))
+            write("  local m = token_merger(...)\n", table.concat(mparts, ","))
             write("%s\n", text_sub2(lparts, part.block))
           end
           write("end\n")
