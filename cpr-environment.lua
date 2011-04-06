@@ -1,15 +1,12 @@
 Environment = Class("Environment", {
-  cpr = function(self, indent)
-    local tab = {}
-    return concat(tab, "")
+  cpr = function(self, wt, indent)
+    wt:add(indent, "<env>", "\n")
   end,
 },
-function(E, ast)
-  local self = disown(ast)
-  for k, v in pairs(self) do
-    if v.tag then
-      self[k] = disown(v)
-    end
+function(E, self)
+  --idump(self)
+  for k, v in ipairs(self) do
+    disown(v)
   end
   return self
 end)

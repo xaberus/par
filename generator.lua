@@ -254,12 +254,14 @@ local header = [[
   const unsigned char *translate;
 
   int yyparse(parser_t *);
-  int yylex(YYSTYPE *, parser_t *);
-  int yyerror(parser_t *, const char *);
-  int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int argc, ...);
+  int yylex(YYSTYPE *, YYLTYPE*, parser_t *);
+  int yyerror(YYLTYPE *, parser_t *, const char *);
+  int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, unsigned int argc, ...);
 }
 
 %pure_parser
+
+%locations
 
 %token-table
 %debug
@@ -295,24 +297,35 @@ local middle =  [[
 local footer = [[
 %%
 
-int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int argc, ...)
+int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, unsigned int argc, ...)
 {
   lua_State * L = parser->L;
   int ret = LUA_NOREF;
   va_list ap;
 
-  lua_settop(L, 0); luaL_checkstack(L, argc + 1, "could not grow stack!");
+  lua_settop(L, 0); luaL_checkstack(L, argc + 2, "could not grow stack!");
 
   if (yydebug)
     fprintf(stderr, "in c-handler %s\n", name);
 
   lua_getfield(L, LUA_ENVIRONINDEX, name); // handler name 
   if (lua_isnil(L, -1)) {
-    yyerror(parser, "no handler");
+    fprintf(stderr, "%s\n", "no handler");
     return LUA_NOREF;
   }
 
   lua_rawgeti(L, LUA_REGISTRYINDEX, parser->envref); // env
+
+  lua_newtable(L);
+
+  lua_pushinteger(L, l->first_line);
+  lua_setfield(L, -2, "_line");
+
+  lua_pushinteger(L, l->first_column);
+  lua_setfield(L, -2, "_ts");
+
+  lua_pushinteger(L, l->last_column);
+  lua_setfield(L, -2, "_te");
 
   va_start(ap, argc);
   for (unsigned int k = 0; k < argc; k++) {
@@ -327,7 +340,7 @@ int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int ar
           lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
           int e = lua_pcall(L, 1, 0, 0);
           if (e) {
-            yyerror(parser, lua_tostring(parser->L, -1));
+            fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
             lua_pop(L, 1);
           }
         }
@@ -349,15 +362,15 @@ int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int ar
   if (yydebug > 1) {
     fprintf(stderr, "---------------------\n");
   }
-  int e = lua_pcall(L, 1 + argc, 1, 0); // env + args
+  int e = lua_pcall(L, 2 + argc, 1, 0); // env + args
   if (e) {
-    yyerror(parser, lua_tostring(parser->L, -1));
+    fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
     lua_pop(L, 1);
     return ret;
   }
 
   if (lua_isnil(L, -1)) {
-    yyerror(parser, "parser operation returned nil!");
+    fprintf(stderr, "%s\n", "parser operation returned nil!");
     return ret;
   } else {
     ret = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -368,7 +381,7 @@ int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int ar
       lua_rawgeti(L, LUA_REGISTRYINDEX, ret);
       int e = lua_pcall(L, 1, 0, 0);
       if (e) {
-        yyerror(parser, lua_tostring(parser->L, -1));
+        fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
         lua_pop(L, 1);
         return ret;
       }
@@ -379,7 +392,7 @@ int yyluabridge(parser_t * parser, const char * name, int unref, unsigned int ar
   return ret;
 }
 
-int yylex(YYSTYPE * s, parser_t * parser) {
+int yylex(YYSTYPE * s, YYLTYPE * l, parser_t * parser) {
   int ret = 0;
   lua_State * L = parser->L;
 
@@ -391,13 +404,22 @@ next_token:
 
   int e = lua_pcall(L, 1, 1, 0);
   if (e) {
-    yyerror(parser, lua_tostring(parser->L, -1));
+    fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
     lua_pop(L, 1);
   }
 
   lua_getfield(L, 1, "id");
   ret = luaL_checkint(L, -1);
   lua_pop(L, 1);
+
+  lua_getfield(L, 1, "_line");
+  l->first_line = l->last_line = lua_tonumber(L, -1); lua_pop(L, 1);
+
+  lua_getfield(L, 1, "_ts");
+  l->first_column = lua_tonumber(L, -1); lua_pop(L, 1);
+
+  lua_getfield(L, 1, "_te");
+  l->last_column = lua_tonumber(L, -1); lua_pop(L, 1);
 
   switch (ret) {
     case LINE_COMMENT:
@@ -413,13 +435,13 @@ next_token:
     default: {
       *s = lua_ref(L, LUA_REGISTRYINDEX);
       parser->tokref = *s;
-     if (yydebug) {
+      if (yydebug) {
         fprintf(stderr, "\n~~~~~~~~~~~~~~~~~~~~~\n");
         lua_getfield(L, LUA_GLOBALSINDEX, "dump");
         lua_rawgeti(L, LUA_REGISTRYINDEX, *s);
         int e = lua_pcall(L, 1, 0, 0);
         if (e) {
-        yyerror(parser, lua_tostring(parser->L, -1));
+          fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
           lua_pop(L, 1);
         }
         fprintf(stderr, "~~~~~~~~~~~~~~~~~~~~~\n");
@@ -433,12 +455,12 @@ next_token:
 
 #include <string.h>
 
-int yyerror(parser_t * parser, const char * error) {
+int yyerror(YYLTYPE * l, parser_t * parser, const char * error) {
   //fprintf(stderr, ">>%s<<\n", error); return 1;
 
   luaL_Buffer b;
   lua_State * L = parser->L;
-  
+
   int top = lua_gettop(L);
 
   lua_rawgeti(L, LUA_REGISTRYINDEX, parser->tokref);
@@ -668,7 +690,7 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
   write("/* productions */\n")
 
   local function bridge(lparts, pname, j, k, ur)
-    write("      $$ = yyluabridge(parser, \"%s_%d_%d\", %d, %d, \n", pname, j, k, ur, #lparts)
+    write("      $$ = yyluabridge(parser, &@$, \"%s_%d_%d\", %d, %d, \n", pname, j, k, ur, #lparts)
     for m, part in ipairs(lparts) do
       if part.tag == "non_terminal" then
         write("        $%d, \"%s\",\n", m, part.value)
@@ -779,41 +801,6 @@ local function merge(tab, atab)
   return tab
 end
 
-token_merger = function(...)
-  local tree = {...}
-  local ts, te, line
-  for k, t in pairs(tree) do
-    if t.tag then
-      local tts, tte, tline = t._ts, t._te, t._line
-      if not ts then
-        ts = tts
-        te = tte
-        line = tline
-      else
-        if tts < ts then ts = tts end
-        if tline < line then line = tline end
-        if tte > ts then te = tte end
-      end
-    elseif t._m then
-      local m = t._m
-      local tts, tte, tline = m._ts, m._te, m._line
-      if tts then
-        if not ts then
-          ts = tts
-          te = tte
-          line = tline
-        else
-          if tts < ts then ts = tts end
-          if tline < line then line = tline end
-          if tte > ts then te = tte end
-        end
-      end
-    end
-  end
-  return {_ts = ts, _te = te, _line = line}
-end
-
-
 local M = {}
 
 ]]
@@ -830,11 +817,10 @@ local M = {}
 
       for k, part in ipairs(rule.parts) do
         if part.tag == "block" then
-          write("M.%s_%d_%d = function(env, ...)\n", production.red.value, j, k)
+          write("M.%s_%d_%d = function(env, m, ...)\n", production.red.value, j, k)
           write("--   %s %s\n", j==1 and ":" or "|", strrule(lparts))
           if #lparts > 0 then
             write("  local %s = ...\n", table.concat(mparts, ","))
-            write("  local m = token_merger(...)\n", table.concat(mparts, ","))
             write("%s\n", text_sub2(lparts, part.block))
           end
           write("end\n")

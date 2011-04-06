@@ -13,6 +13,7 @@ Source = Class("Source", {
         assert(false, "AST/nr")
       end
     end
+    self.env = env
     return self
   end,
   repr = function(self, indent)

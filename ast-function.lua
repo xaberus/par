@@ -134,6 +134,7 @@ function(F, env, tree)
   if tree.forward then
     self.forward = true
     env:sym_reg(v, self)
+    self.cid = env:ns_get_sym(v)
   else
     local benv = penv:child("block")
     local ref = env:sym_get(v)
@@ -147,6 +148,7 @@ function(F, env, tree)
       env:sym_reg(v, self)
     end
     setmetatable(self, Function)
+    self.cid = env:ns_get_sym(v)
     local block = Block(benv, tree.block)
     self.block = block
   end

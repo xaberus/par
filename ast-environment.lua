@@ -1,6 +1,7 @@
 Environment = Class("Environment", {
   constructor = function()
     return {
+      kind = "global";
       loc = {};
     }
   end,
@@ -8,7 +9,7 @@ Environment = Class("Environment", {
   child = function(self, kind)
     local e = setmetatable({}, getmetatable(self))
     e.parent = self
-    e.kind = kind or "env"
+    e.kind = tassert(nil, kind, "environment without type")
     e.loc = self.loc
     self[#self+1] = e
     return e
@@ -21,8 +22,7 @@ Environment = Class("Environment", {
       tassert(nil, not self.syms[id], "symbol redefined in same scope")
     end
 
-    local s = {sym = sym}
-    self.syms[id] = s
+    self.syms[id] = sym
     return sym
   end,
   sym_get_r = function(self, id)
@@ -32,16 +32,12 @@ Environment = Class("Environment", {
       return self.parent:sym_get_r(id)
     end
 
-    if s then
-      return s.sym
-    end
+    return s, self
   end,
   sym_get = function(self, id)
     if not self.syms then return nil end
     local s = self.syms[id]
-    if s then
-      return s.sym
-    end
+    return s
   end,
 
 
@@ -53,8 +49,7 @@ Environment = Class("Environment", {
       tassert(nil, not self.structs[id], "struct redefined in same scope")
     end
 
-    local d = {decl = decl}
-    self.structs[id] = d
+    self.structs[id] = decl
     return decl
   end,
   struct_get_r = function(self, id)
@@ -65,11 +60,12 @@ Environment = Class("Environment", {
     end
 
     -- TODO remove cruft
-    return s
+    return s, self
   end,
   struct_get = function(self, id)
     if not self.structs then return nil end
-    return self.structs[id]
+    local s = self.structs[id]
+    return s
   end,
 
 
@@ -80,8 +76,7 @@ Environment = Class("Environment", {
       tassert(nil, not self.enums[id], "enum redefined in same scope")
     end
 
-    local d = {decl = decl}
-    self.enums[id] = d
+    self.enums[id] = decl
     return decl
   end,
   enum_get_r = function(self, id)
@@ -91,16 +86,12 @@ Environment = Class("Environment", {
       return self.parent:enum_get_r(id)
     end
 
-    if e then
-      return e.decl
-    end
+    return e, self
   end,
   enum_get = function(self, id)
     if not self.enums then return nil end
     local e = self.enums[id]
-    if e then
-      return e.decl
-    end
+    return e
   end,
 
 
@@ -110,7 +101,6 @@ Environment = Class("Environment", {
     else
       tassert(nil, not self.types[id], "type redefined in same scope")
     end
-    local t = {t = t}
     self.types[id] = t
     return t
   end,
@@ -123,7 +113,7 @@ Environment = Class("Environment", {
     end
 
     if t then
-      return t.t
+      return t, self
     end
   end,
 
@@ -133,14 +123,14 @@ Environment = Class("Environment", {
     else
       tassert(nil, not self.labels[id], "label redefined in same scope")
     end
-    local l = {l = l}
     self.labels[id] = l
     return l
   end,
 
   label_get = function(self, id)
     if not self.labels then return nil end
-    return self.labels[id]
+    local l = self.labels[id]
+    return l
   end,
   label_get_r = function(self, id)
     local l = self.labels and self.labels[id] or nil
@@ -162,11 +152,11 @@ Environment = Class("Environment", {
 
     local ns = self.nss[id]
     if self.nss[id] then
-      return ns.env
+      return ns
     else
-      local ns = {env = self:child("ns")}
+      local ns = self:child("ns")
       self.nss[id] = ns
-      return ns.env
+      return ns
     end
   end,
 
@@ -177,8 +167,70 @@ Environment = Class("Environment", {
       return self.parent:ns_get_r(id)
     end
 
-    return ns.env
+    return ns
   end,
+
+---------------------------------
+
+  ns_get_pfxs = function(self)
+    local function _walk(e, pfxs)
+      while e do
+        if e.kind == "ns" then
+          pfxs[#pfxs+1] = e.pfx
+        end
+        e = e.parent
+      end
+    end
+    pfxs = {}
+    _walk(self, pfxs)
+    return pfxs
+  end,
+
+  ns_get_sym = function(self, id)
+    local sym, env = self:sym_get_r(id)
+    if sym then
+      if env.kind == "global" or env.kind == "ns" then
+        local p = env:ns_get_pfxs()
+        if #p > 0 then
+          return concat(p, "") .. id
+        end
+      end
+    end
+  end,
+  ns_get_type = function(self, id)
+    local sym, env = self:type_get_r(id)
+    if sym then
+      if env.kind == "global" or env.kind == "ns" then
+        local p = env:ns_get_pfxs()
+        if #p > 0 then
+          return concat(p, "") .. id
+        end
+      end
+    end
+  end,
+  ns_get_struct = function(self, id)
+    local sym, env = self:struct_get_r(id)
+    if sym then
+      if env.kind == "global" or env.kind == "ns" then
+        local p = env:ns_get_pfxs()
+        if #p > 0 then
+          return concat(p, "") .. id
+        end
+      end
+    end
+  end,
+  ns_get_enum = function(self, id)
+    local sym, env = self:enum_get_r(id)
+    if sym then
+      if env.kind == "global" or env.kind == "ns" then
+        local p = env:ns_get_pfxs()
+        if #p > 0 then
+          return concat(p, "") .. id
+        end
+      end
+    end
+  end,
+
 
 
 })

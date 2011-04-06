@@ -21,6 +21,7 @@ function(E, env, enum, tree)
   end
   self.ctype = enum.ctype
   env:sym_reg(v, self)
+  self.cid = env:ns_get_sym(v)
   return self
 end)
 
@@ -51,8 +52,13 @@ function(E, env, tree)
       complete = true;
     }, Type) -- hacky?
 
+    env:enum_reg(v, self)
+
     self.id = v
+    self.cid = env:ns_get_enum(v)
     self.ctype = etype
+
+    tassert(tree._m, #list > 0, "empty enumerations are not allowed")
 
     for k ,v in ipairs(list) do
       self[#self+1] = Enumerator(env, self, v)
@@ -63,6 +69,7 @@ function(E, env, tree)
     local self = mktab(env, tree, {}, E)
     self.id = v
     self.ctype = enum.ctype
+    self.cid = env:ns_get_enum(v)
     return self
   end
 end)

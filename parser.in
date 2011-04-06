@@ -1172,11 +1172,18 @@ external_declaration
   ;
 
 namespace
-  : NAMESPACE IDENTIFIER L_BRACE R_BRACE SEMICOLON {
-      return {ns = $2, list = {}, _m = m}
+  : NAMESPACE IDENTIFIER {
+      env.current = env.current:ns_reg($2.value)
+      return env.current
+    } L_BRACE namespace_declaration R_BRACE SEMICOLON {
+      env.current = env.current.parent
+      return {ns = $2, list = $5, _m = m}
     }
-  | NAMESPACE IDENTIFIER L_BRACE namespace_declaration R_BRACE SEMICOLON {
-      return {ns = $2, list = $4, _m = m}
+  | NAMESPACE IDENTIFIER {
+      env.current = env.current:ns_reg($2.value)
+    } COLON IDENTIFIER L_BRACE namespace_declaration R_BRACE SEMICOLON {
+      env.current = env.current.parent
+      return {ns = $2, pfx = $5, list = $7,_m = m}
     }
   ;
 

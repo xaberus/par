@@ -5,6 +5,7 @@ Expression = Class("Expression", {
       local self = mktab(env, tree, {identifier = v}, Expression)
       local ref = tassert(tree.iden, env:sym_get_r(v),
         "no symbol '%s' in same scope", v)
+      self.cid = ref.cid
       self.ref = ref
       self.ctype = tassert(tree.iden, self:get_type(), "could not resolve type for '%s'", v)
       return self
@@ -406,7 +407,11 @@ Expression = Class("Expression", {
       return self.a:get_type(env)
     end,
     ["index"] = function(self, env)
-      return self.a:get_type()
+      if self.a.ctype.pointer and not self.a.ctype.array then
+        return self.a:get_type():strip_pointer()
+      else
+        return self.a:get_type()
+      end
     end,
     ["add"] = function(self, env)
       return tassert(env.loc[self], Type:get_arith_type(self.a:get_type(), self.b:get_type()), "IGG")

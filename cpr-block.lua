@@ -1,15 +1,18 @@
 Block = Class("Block", {
-  cpr = function(self, indent)
-    local tab = {}
-    return concat(tab, "")
+  cpr = function(self, wt, indent)
+    local indent2 = indent .. "  "
+    wt:add("{\n")
+    for k, v in ipairs(self) do
+      v:cpr(wt, indent2)
+    end
+    wt:add(indent, "}")
   end,
 },
-function(B, ast)
-  local self = disown(ast)
-  for k, v in pairs(self) do
-    if v.tag then
-      self[k] = disown(v)
-    end
+function(B, self)
+  --idump(self)
+  disown(self.env)
+  for k, v in ipairs(self) do
+    disown(v)
   end
   return self
 end)

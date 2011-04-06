@@ -15,6 +15,8 @@ function(D, env, ctype, tree)
 
   env:sym_reg(v, self)
 
+  self.cid = env:ns_get_sym(v)
+
   return self
 end)
 
@@ -69,12 +71,12 @@ function(D, env, tree)
     self.tdef = true
     self.id = v
     self.ctype = Type(env, tree.ctype)
+    self.cid = env:ns_get_type(v)
     return self
   elseif tree.enum then
     local self = mktab(env, tree, {}, D)
     local v = tree.enum.value
     self.enum = Enum(env, tree)
-    env:enum_reg(v, self.enum)
     return self
   else
     dump(tree, true)

@@ -12,6 +12,20 @@ function(N, env, tree)
   local env = env:ns_reg(v, self)
 
   self.id = v
+  if tree.pfx then
+    if env.pfx then
+      tassert(tree._m, env.pfx == tree.pfx.value, "namespace declared with different prefix")
+    else
+      env.pfx = tree.pfx.value
+    end
+  else
+    if not env.pfx then
+      env.pfx = v .. "_"
+    end
+  end
+
+  self.env = env
+
   self.src = Source(env, tree.list)
 
   return self

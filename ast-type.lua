@@ -376,7 +376,11 @@ Type = Class("Type", {
   strip_pointer = function(self)
     local t = deepcopy(self)
     tassert(nil, t.abs and t.pointer, "not a pointer")
-    remove(t.pointer, #t.pointer)
+    if #t.pointer > 1 then
+      remove(t.pointer, #t.pointer)
+    else
+      t.pointer = nil
+    end
     return t
   end,
 
@@ -488,6 +492,7 @@ function(T, env, tree)
             self.ref = tassert(s, env:type_get_r(v), "reference to undefined type '%s'", v)
             --dump(self.ref)
             self.id = v
+            self.cid = env:ns_get_type(v)
             self.complete = true
             break
           end

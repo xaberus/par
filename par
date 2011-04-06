@@ -35,13 +35,13 @@ local p, tree = Parser(arg[1] or "test.in"):parse()
 local ast
 
 local stat, err = xpcall(
-  function()
-    ast = AST.Source(p.env.current, tree)
-    print(ast:repr(""))
-  end,
-  function(err)
-    return {err, debug.traceback()}
-  end)
+function()
+  ast = AST.Source(p.env.current, tree)
+  --print(ast:repr(""))
+end,
+function(err)
+  return {err, debug.traceback()}
+end)
 
 if not stat then
   local res, tbk = unpack(err)
@@ -77,6 +77,24 @@ if not stat then
   --end
 end
 
---local cpr = CPR.Source(ast)
---print(cpr:cpr(""))
+local out = setmetatable({}, {
+  __index = {
+    add = function(self, ...)
+      self[#self+1] = table.concat({...}, "")
+    end,
+    pop = function(self, ...)
+      table.remove(self)
+    end,
+    dmp = function(self)
+      for k, v in ipairs(self) do
+        print(string.format("[[%s]]", v))
+      end
+    end,
+  }
+})
 
+if ast then
+  local cpr = CPR.disown(ast)
+  cpr:cpr(out, "")
+  print(table.concat(out, ""))
+end

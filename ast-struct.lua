@@ -74,7 +74,7 @@ Struct = Class("Struct", {
     local tab = {}
 
     if self.ref then
-      local ref = self.ref.decl
+      local ref = self.ref
 
       if ref.union then
         tab[#tab+1] = "union"
@@ -120,7 +120,7 @@ Struct = Class("Struct", {
 
   dereference = function(self)
     if self.ref then
-      return self.ref.decl
+      return self.ref
     else
       return self
    end
@@ -141,6 +141,7 @@ function(S, env, tree, id, scope)
     local ref = tassert(tree.struct, env:struct_get_r(id),
       "undefined struct '%s'", id)
     local self = mktab(env, tree, {ref = ref}, S)
+    self.cid = env:ns_get_struct(id)
     return self
   else
     local self = mktab(env, tree, {scope = scope or {[0] = 1}}, S)
@@ -154,6 +155,7 @@ function(S, env, tree, id, scope)
 
     if id then
       self.id = id
+      self.cid = env:ns_get_struct(id)
     else
       self.anon = true
       self.id = "anonymous" .. self.scope[0]

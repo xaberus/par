@@ -13,8 +13,42 @@ local M = {
   remove = table.remove,
   format = string.format,
   -- not needed
-  print = print
+  print = print,
+  assert = assert,
 }
+
+local function idump(self, indent)
+  local idnt
+  if not indent then
+    print("[1;31m┏━━━━━╾───────────────[0;m")
+    print(string.format("%s [1;35m%s[0;m:", "[1;31m┃[0;m", self.tag))
+    idnt = "[1;31m┠──[0;m"
+  else
+    idnt = indent
+  end
+  for k, v in pairs(self) do
+    local t = type(v)
+    if t == "string" then
+      print(string.format("%s %s = '[1;34m%s[0;m'", idnt, tostring(k), v))
+    elseif t == "table" then
+      if v.tag then
+        print(string.format("%s %s = [1;33m%s[0;m", idnt, tostring(k), v.tag))
+      elseif k == "loc" then
+        print(string.format("%s loc ...", idnt, tostring(k)))
+      else
+        print(string.format("%s %s:", idnt, tostring(k)))
+        idump(v, idnt .. "[1;31m──[0;m")
+      end
+    else
+      print(string.format("%s %s = '[1;32m%s[0;m'", idnt, k, tostring(v)))
+    end
+  end
+  if not indent then
+    print("[1;31m┗━━━━━╾───────────────[0;m")
+    io.stdout:flush()
+  end
+end
+M.idump = idump
 
 M.tassert = function(token, cond, message, ...)
   if not cond then
@@ -25,7 +59,10 @@ end
 
 M.disown = function(self)
   local m = assert(M[self.tag], "no metatable for " .. self.tag)
-  setmetatable(self, m)
+  if getmetatable(self) ~= m then
+    --print("disown", self.tag)
+    m(setmetatable(self, m))
+  end
   return self
 end
 

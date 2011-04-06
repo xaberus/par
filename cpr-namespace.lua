@@ -1,16 +1,14 @@
 Namespace = Class("Namespace", {
-  cpr = function(self, indent)
-    local tab = {}
-    return concat(tab, "")
+  cpr = function(self, wt, indent)
+    wt:add(indent, "/* start namespace ", self.id, " : ", self.env.pfx, " */\n")
+    self.src:cpr(wt, indent .. "  ")
+    wt:add(indent, "/* end namespace ", self.id, " */\n")
   end,
 },
-function(N, ast)
-  local self = disown(ast)
-  for k, v in pairs(self) do
-    if v.tag then
-      self[k] = disown(v)
-    end
-  end
+function(N, self)
+  --idump(self)
+  disown(self.env)
+  disown(self.src)
   return self
 end)
 
