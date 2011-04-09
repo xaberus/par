@@ -831,10 +831,10 @@ local M = {}
         table.insert(lparts, part)
 
         if k == #rule.parts and part.tag ~= "block" then
-          write("M.%s_%d_%d = function(env, ...)\n", production.red.value, j, k)
+          write("M.%s_%d_%d = function(env, m, ...)\n", production.red.value, j, k)
           write("  -- XXX default handler\n")
           io.stderr:write(format("warning: generating default handler for %s_%d_%d\n", production.red.value, j, k))
-          write("  return {...}\n")
+          write("  return {..., _m = m}\n")
           write("end\n")
         end
       end
