@@ -10,7 +10,7 @@ Source = Class("Source", {
         self[#self+1] = Namespace(env, v)
       else
         dump(v)
-        assert(false, "AST/nr")
+        tassert(tree._m, false, "AST/Source NIY")
       end
     end
     self.env = env
