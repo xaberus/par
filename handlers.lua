@@ -13,7 +13,8 @@ local M = {
   remove = table.remove,
   format = string.format,
   -- not needed
-  print = print
+  print = print,
+  stderr = io.stderr,
 }
 
 M.tassert = function(token, cond, message, ...)

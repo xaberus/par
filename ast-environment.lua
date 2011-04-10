@@ -1,11 +1,4 @@
 Environment = Class("Environment", {
-  constructor = function()
-    return {
-      kind = "global";
-      loc = {};
-    }
-  end,
-
   child = function(self, kind)
     local e = setmetatable({}, getmetatable(self))
     e.parent = self
@@ -230,8 +223,12 @@ Environment = Class("Environment", {
       end
     end
   end,
-
-
-
-})
+},
+function(E)
+  local env = setmetatable({
+    kind = "global";
+    loc = {};
+  }, E)
+  return env
+end)
 

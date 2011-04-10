@@ -7,20 +7,6 @@ local AST = require "handlers"
 local CPR = require "cpr"
 
 Parser = Class("Parser", {
-  constructor = function(src)
-    local self = {
-      src = io.input(src):read("*a"),
-      running = true,
-      pos = 1,
-      rt = {line = 1},
-      env = {
-        global = AST.Environment(),
-      },
-      parse = parse,
-    }
-    self.env.current = self.env.global
-    return self
-  end,
   errf = function(err)
     print(debug.traceback())
     print(err)
@@ -28,11 +14,29 @@ Parser = Class("Parser", {
   penv = assert(require "parser"),
   lex = assert(require "lexer"),
   parse = assert(require "libclex_parse"),
-})
+},
+function(P, src)
+  local env = AST.Environment()
+  local self = setmetatable({
+    src = io.input(src):read("*a"),
+    running = true,
+    pos = 1,
+    rt = {line = 1},
+    env = {
+      global = env,
+      current = env,
+    },
+    parse = parse,
+  }, P)
+  return self
+end)
 
 local p, tree = Parser(arg[1] or "test.in"):parse()
 
 local ast
+
+io.stderr:write("CLEX\n")
+io.stderr:flush()
 
 local stat, err = xpcall(
 function()
@@ -72,9 +76,9 @@ if not stat then
   else
     print("error: " .. res)
   end
-  --if not res then
+  if not res then
     print(tbk)
-  --end
+  end
 end
 
 local out = setmetatable({}, {
@@ -93,8 +97,13 @@ local out = setmetatable({}, {
   }
 })
 
+io.stderr:write("STAGE 1: done\n")
+io.stderr:flush()
+
 if ast then
   local cpr = CPR.disown(ast)
   cpr:cpr(out, "")
   print(table.concat(out, ""))
 end
+
+io.stderr:write("STAGE 2: done\n")
