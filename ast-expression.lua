@@ -49,7 +49,7 @@ Expression = Class("Expression", {
 
       --dump(t, true)
 
-      local r = tassert(tree.iden, t and s, "%s is neither a struct not an union", a:repr("")):dereference()
+      local r = tassert(tree.iden, t and s, "'%s' is neither a struct not an union", a:repr("")):dereference()
       local f = tassert(tree.iden, r:get_field(b), "no field %s in:\n%s", b, "  " .. r:repr("  "))
 
       --tassert(b, false, "FOP")
@@ -328,6 +328,9 @@ Expression = Class("Expression", {
     ["inc"] = function(self, env)
       return self.a:get_type()
     end,
+    ["uinc"] = function(self, env)
+      return self.a:get_type()
+    end,
     ["band_asgn"] = function(self, env)
       return self.a:get_type(env)
     end,
@@ -582,6 +585,9 @@ Expression = Class("Expression", {
   finr = function(self, env)
     if self.op and not self.ctype then
       local fn = self.opth[self.op]
+      if not fn then
+        dump(self, true, nil, nil)
+      end
       local r = fn(self, env)
       if not r then
         dump({self.op, self}, nil, nil, nil, "TODO")
@@ -623,7 +629,7 @@ Expression = Class("Expression", {
   get_function = function(self, env)
     if self.identifier then
       if not self.ref.get_function then
-        dump({self.ref.tag, self.ref}, true)
+        dump({self.ref["@tag"], self.ref}, true)
       end
       return self.ref:get_function()
     end
@@ -655,7 +661,7 @@ Expression = Class("Expression", {
   end,
 },
 function(E, env, tree)
-  --dump(tree)
+  if not E.h[tree.k] then dump(tree) end
   local ret = E.h[tree.k](env, tree)
   ret:finr(env);
   return ret

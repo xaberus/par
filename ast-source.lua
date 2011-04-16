@@ -18,6 +18,8 @@ function(S, env, tree)
       self[#self+1] = Declaration(env, v)
     elseif v.ns then
       self[#self+1] = Namespace(env, v)
+    elseif v.idecl then
+      self[#self+1] = Interface(env, v)
     else
       dump(v)
       tassert(tree._m, false, "AST/Source NIY")

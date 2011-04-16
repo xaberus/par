@@ -1,4 +1,14 @@
 tokens {
+  MACRODEF(5000) {
+    local write = ...
+    write([[( macrodef )]])
+  };
+  MACRO(5001) {
+    local write = ...
+    write([[( P(false) )]])
+  };
+
+
   LINE_COMMENT(1000) {
     local write = ...
     write([[( P"//" * ( P(1) - nl )^0  )]])
@@ -71,16 +81,15 @@ tokens {
 
   NAMESPACE(nil, K"namespace");
   DECLARE(nil, K"declare");
+  INHERIT(nil, K"inherit");
   INTERFACE(nil, K"interface");
-  SELFTYPE(nil, K"selftype");
-  SELF(nil, K"self");
 
   /* must be here */
   INT(nil, K"int");
 
   IDENTIFIER(100) {
     local write = ...
-    write([[( ((R"AZ" + R"az" + S"_") *  (R"AZ" + R"az" + S"_" + R"09")^0)-(keywords*(-(R"AZ" + R"az" + S"_" + R"09"))) )]])
+    write([[( iden )]])
   };
   TYPE_NAME(200) {
     local write = ...
@@ -177,9 +186,6 @@ primary_expression
   : IDENTIFIER {
       return {k = "id", iden = $1, _m = m}
     }
-  | SELF {
-      return {k = "self", self = "self", _m = m}
-    }
   | constant {
       return {k = "c", const = $1, _m = m}
     }
@@ -261,7 +267,7 @@ unary_expression
       return {k = "op_uinc", uinc = $2, _m = m}
     }
   | DEC_OP unary_expression {
-      return {k = "op_denc", udec = $2, _m = m}
+      return {k = "op_udec", udec = $2, _m = m}
     }
   | AMPERSAND cast_expression {
       return {k = "op_addr", addr = $2, _m = m}
@@ -622,9 +628,6 @@ type_specifier
       return $1
     }
   | UINT64 {
-      return $1
-    }
-  | SELFTYPE {
       return $1
     }
   ;
@@ -1154,6 +1157,7 @@ translation_unit
       $1[#$1+1] = $2
       return $1
     }
+  | MACRODEF
   ;
 
 external_declaration
@@ -1174,7 +1178,6 @@ external_declaration
 namespace
   : NAMESPACE IDENTIFIER {
       env.current = env.current:ns_reg($2.value)
-      return env.current
     } L_BRACE namespace_declaration R_BRACE SEMICOLON {
       env.current = env.current.parent
       return {ns = $2, list = $5, _m = m}
@@ -1203,30 +1206,47 @@ interface_definition
     }
   ;
 
-interface_declaration
-  : DECLARE struct_or_union_specifier SEMICOLON {
+interface_derrivation
+  : INHERIT INTERFACE IDENTIFIER SEMICOLON {
+      return {inherit = $3, _m = m}
+    }
+  ;
+
+interface_struct_declaration_list
+  : struct_declaration {
+      return {$1, _m = m}
+    }
+  | interface_derrivation {
+      return {$1, _m = m}
+    }
+  | interface_struct_declaration_list struct_declaration {
+      $1[#$1+1] = $2
       return $1
     }
   ;
 
 
-interface_definition_block
-  : method_definition_list
-  | interface_derrivation method_definition_list
+interface_declaration
+  : DECLARE L_BRACE interface_struct_declaration_list R_BRACE SEMICOLON {
+      return $3
+    }
   ;
 
-interface_derrivation
-  : INTERFACE IDENTIFIER SEMICOLON
-  | INTERFACE IDENTIFIER L_BRACE method_definition_list R_BRACE SEMICOLON
+
+interface_definition_block
+  : method_definition_list {
+      return $1
+    }
   ;
 
 method_definition_list
-  : method_definition
-  | method_definition_list method_definition
-  ;
-
-method_definition
-  : function_definition
+  : function_definition {
+      return {$1, _m = m}
+    }
+  | method_definition_list function_definition {
+      $1[#$1+1] = $2
+      return $1
+    }
   ;
 
 function_specifier_list
@@ -1266,16 +1286,16 @@ function_definition
     }
 
   | type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON {
-      return {funcdef = $2, rctype = $1, list = {}, block = $5, forward = true, _m = m}
+      return {funcdef = $2, rctype = $1, list = {}, forward = true, _m = m}
     }
   | function_specifier_list type_name IDENTIFIER L_PAREN R_PAREN SEMICOLON {
-      return {spec = $1, funcdef = $3, rctype = $2, list = {}, block = $6, forward = true, _m = m}
+      return {spec = $1, funcdef = $3, rctype = $2, list = {}, forward = true, _m = m}
     }
   | type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON {
-      return {funcdef = $2, rctype = $1, list = $4, block = $6, forward = true, _m = m}
+      return {funcdef = $2, rctype = $1, list = $4, forward = true, _m = m}
     }
   | function_specifier_list type_name IDENTIFIER L_PAREN parameter_type_list R_PAREN SEMICOLON {
-      return {spec = $1, funcdef = $3, rctype = $2, list = $5, block = $7, forward = true, _m = m}
+      return {spec = $1, funcdef = $3, rctype = $2, list = $5, forward = true, _m = m}
     }
   ;
 

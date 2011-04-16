@@ -12,7 +12,7 @@ Environment = Class("Environment", {
     if not self.syms then
       self.syms = {}
     else
-      tassert(nil, not self.syms[id], "symbol redefined in same scope")
+      tassert(self.loc[sym], not self.syms[id], "symbol '%s' redefined in same scope", id)
     end
 
     self.syms[id] = sym
@@ -41,6 +41,7 @@ Environment = Class("Environment", {
     else
       tassert(nil, not self.structs[id], "struct redefined in same scope")
     end
+    tassert(self.loc[decl], not self:iface_get(id), "struct/interface namespace clash for '%s'", id)
 
     self.structs[id] = decl
     return decl
@@ -163,13 +164,45 @@ Environment = Class("Environment", {
     return ns
   end,
 
+  iface_reg = function(self, id, i)
+    if not self.ifaces then
+      self.ifaces = {}
+    else
+      tassert(nil, not self.ifaces[id], "interface redefined in same scope")
+    end
+    tassert(self.loc[i], not self:struct_get(id), "struct/interface namespace clash for '%s'", id)
+    self.ifaces[id] = i
+    return i
+  end,
+
+  iface_get_r = function(self, id)
+    local i = self.ifaces and self.ifaces[id] or nil
+
+    if not i and self.parent then
+      return self.parent:iface_get_r(id)
+    end
+
+    if i then
+      return i, self
+    end
+  end,
+  iface_get = function(self, id)
+    if not self.ifaces then return nil end
+    local i = self.ifaces[id]
+    return i
+  end,
+
+
+
 ---------------------------------
 
   ns_get_pfxs = function(self)
     local function _walk(e, pfxs)
       while e do
         if e.kind == "ns" then
-          pfxs[#pfxs+1] = e.pfx
+          insert(pfxs, 1, e.pfx)
+        elseif e.kind == "iface" then
+          insert(pfxs, 1, e.pfx)
         end
         e = e.parent
       end
@@ -182,7 +215,7 @@ Environment = Class("Environment", {
   ns_get_sym = function(self, id)
     local sym, env = self:sym_get_r(id)
     if sym then
-      if env.kind == "global" or env.kind == "ns" then
+      if env.kind == "global" or env.kind == "ns" or env.kind == "iface" then
         local p = env:ns_get_pfxs()
         if #p > 0 then
           return concat(p, "") .. id
@@ -193,7 +226,7 @@ Environment = Class("Environment", {
   ns_get_type = function(self, id)
     local sym, env = self:type_get_r(id)
     if sym then
-      if env.kind == "global" or env.kind == "ns" then
+      if env.kind == "global" or env.kind == "ns" or env.kind == "iface" then
         local p = env:ns_get_pfxs()
         if #p > 0 then
           return concat(p, "") .. id
@@ -204,7 +237,7 @@ Environment = Class("Environment", {
   ns_get_struct = function(self, id)
     local sym, env = self:struct_get_r(id)
     if sym then
-      if env.kind == "global" or env.kind == "ns" then
+      if env.kind == "global" or env.kind == "ns" or env.kind == "iface" then
         local p = env:ns_get_pfxs()
         if #p > 0 then
           return concat(p, "") .. id
@@ -215,7 +248,18 @@ Environment = Class("Environment", {
   ns_get_enum = function(self, id)
     local sym, env = self:enum_get_r(id)
     if sym then
-      if env.kind == "global" or env.kind == "ns" then
+      if env.kind == "global" or env.kind == "ns" or env.kind == "iface" then
+        local p = env:ns_get_pfxs()
+        if #p > 0 then
+          return concat(p, "") .. id
+        end
+      end
+    end
+  end,
+  ns_get_iface = function(self, id)
+    local sym, env = self:iface_get_r(id)
+    if sym then
+      if env.kind == "global" or env.kind == "ns" or env.kind == "iface" then
         local p = env:ns_get_pfxs()
         if #p > 0 then
           return concat(p, "") .. id

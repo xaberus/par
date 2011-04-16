@@ -1,8 +1,8 @@
 Namespace = Class("Namespace", {
   cpr = function(self, wt, indent)
-    wt:add(indent, "/* start namespace ", self.id, " : ", self.env.pfx, " */\n")
+    wt:add(indent, "/* start namespace ", self.cid or self.id, " : ", self.env.pfx, " */\n")
     self.src:cpr(wt, indent .. "  ")
-    wt:add(indent, "/* end namespace ", self.id, " */\n")
+    wt:add(indent, "/* end namespace ", self.cid or self.id, " */\n")
   end,
 },
 function(N, self)

@@ -9,6 +9,7 @@ local M = {
   setmetatable = setmetatable,
   type = type,
   concat = table.concat,
+  insert = table.insert,
   next = next,
   remove = table.remove,
   format = string.format,
@@ -47,7 +48,7 @@ local function deepcompare(t1,t2,ignore_mt)
     local mt = getmetatable(t1)
     if not ignore_mt and mt and mt.__eq then return t1 == t2 end
 
-    if t1.tag == "token" and t2.tag == "token" then
+    if t1["@tag"] == "token" and t2["@tag"] == "token" then
       return t1.value == t2.value
     end
 
@@ -85,6 +86,7 @@ import("ast-source.lua", M)
 import("ast-statement.lua", M)
 import("ast-struct.lua", M)
 import("ast-type.lua", M)
+import("ast-interface.lua", M)
 
 return M
 

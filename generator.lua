@@ -90,14 +90,14 @@ local grammar = P {
 
   entry_point =
     (space * tokens * space * Ct(production^1) * space)
-      / function(...) return {tag = "ast", ...} end,
+      / function(...) return {["@tag"] = "ast", ...} end,
 
   tokens =
     (space * P"tokens" * space * left_brace * token_definitions * right_brace)
       / function(...) 
         local args = {...}
-        if type(args[1]) == "string" then return {tag = "tokens"} end
-        return {tag = "tokens", ...}
+        if type(args[1]) == "string" then return {["@tag"] = "tokens"} end
+        return {["@tag"] = "tokens", ...}
       end,
 
   token_definitions =
@@ -107,12 +107,12 @@ local grammar = P {
     ((space * terminal * space * left_paren * space * token_args * Cb("kw") * space * right_paren * semicolon * space)
       / function(token, id, rep, kw)
         id = (id ~= "nil") and tonumber(id) or nil
-        return {tag = "token_definition", token = token, id = id, rep = rep, kw = kw == "K" and true or false} 
+        return {["@tag"] = "token_definition", token = token, id = id, rep = rep, kw = kw == "K" and true or false} 
       end)
     + ((space * terminal * space * left_paren * space * C(token_number) * space * right_paren * (lua_block) * semicolon * space)
       / function(token, id, block)
         id = (id ~= "nil") and tonumber(id) or nil
-        return {tag = "token_definition", token = token, id = id, rep = "block", kw = kw == "K" and true or false, block = block}
+        return {["@tag"] = "token_definition", token = token, id = id, rep = "block", kw = kw == "K" and true or false, block = block}
       end)
     ,
 
@@ -137,23 +137,23 @@ local grammar = P {
 
   production =
     (space * non_terminal * space * colon * ruleblock * semicolon * space)
-      / function(red, rules) return {tag = "production", red = red, rules = rules} end,
+      / function(red, rules) return {["@tag"] = "production", red = red, rules = rules} end,
 
   ruleblock =
     (space * rule * (pipe * rule)^0 * space)
-      / function(...) return {tag = "ruleblock", ...} end,
+      / function(...) return {["@tag"] = "ruleblock", ...} end,
 
   rule =
-    (space * Ct(((terminal + non_terminal + (lua_block / function(block) return {tag = "block", block = block} end)) * space)^0) * space)
-    / function(parts) return {tag = "rule", parts = parts} end,
+    (space * Ct(((terminal + non_terminal + (lua_block / function(block) return {["@tag"] = "block", block = block} end)) * space)^0) * space)
+    / function(parts) return {["@tag"] = "rule", parts = parts} end,
 
   terminal =
     C(upper_case * (terminal_any)^0)
-      / function(value) return {tag = "terminal", value = value} end,
+      / function(value) return {["@tag"] = "terminal", value = value} end,
 
   non_terminal =
     C(lower_case * (terminal_any)^0)
-      / function(value) return {tag = "non_terminal", value = value} end,
+      / function(value) return {["@tag"] = "non_terminal", value = value} end,
 
   lua_block =
     space * ((brace_block) / function(str) return str:sub(2, #str-1) end) * space,
@@ -204,7 +204,7 @@ function parse(src)
   for i, prod in ipairs(productions) do
     for j, rule in ipairs(prod.rules) do
       for k, part in ipairs(rule.parts) do
-        if part.tag == "terminal" then
+        if part["@tag"] == "terminal" then
           tokendef = tokensmap[part.value]
           if not tokendef then
             stderr:write(format("no lexical definition for >%s<;\n", part.value))
@@ -213,7 +213,7 @@ function parse(src)
           -- make uinque
           assert(tokendef)
           rule.parts[k] = tokendef
-        elseif part.tag == "non_terminal" then
+        elseif part["@tag"] == "non_terminal" then
           -- make uinque
           assert(map[part.value])
           rule.parts[k] = map[part.value].red
@@ -332,7 +332,7 @@ int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, un
     int ref = va_arg(ap, int);
     const char * an= va_arg(ap, char *);
 
-    if (ref != LUA_NOREF) {
+    if (ref != LUA_NOREF && ref != LUA_REFNIL) {
       lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
       if (lua_istable(L, -1)) {
         if (yydebug > 1) {
@@ -352,7 +352,7 @@ int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, un
       }
     } else {
       if (yydebug > 1) {
-        fprintf(stderr, "nil argument for arg '%s'\n", an);
+        fprintf(stderr, "nil argument for arg '%s' for handler '%s'\n", an, name);
       }
       lua_pushnil(L);
     }
@@ -364,29 +364,32 @@ int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, un
   }
   int e = lua_pcall(L, 2 + argc, 1, 0); // env + args
   if (e) {
-    fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
+    yyerror(l, parser, lua_tostring(parser->L, -1));
     lua_pop(L, 1);
-    return ret;
+    return LUA_NOREF;
   }
 
-  if (lua_isnil(L, -1)) {
-    fprintf(stderr, "%s\n", "parser operation returned nil!");
-    return ret;
-  } else {
-    ret = luaL_ref(L, LUA_REGISTRYINDEX);
-    parser->astref = ret;
-
-    if (yydebug > 1) {
-      lua_getfield(L, LUA_GLOBALSINDEX, "dump");
-      lua_rawgeti(L, LUA_REGISTRYINDEX, ret);
-      int e = lua_pcall(L, 1, 0, 0);
-      if (e) {
-        fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
-        lua_pop(L, 1);
-        return ret;
-      }
+  if (unref) {
+    if (lua_isnil(L, -1)) {
+      yyerror(l, parser, "parser operation returned nil!");
+      return LUA_NOREF;
     }
   }
+
+  ret = luaL_ref(L, LUA_REGISTRYINDEX);
+  parser->astref = ret;
+
+  if (yydebug > 1) {
+    lua_getfield(L, LUA_GLOBALSINDEX, "dump");
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ret);
+    int e = lua_pcall(L, 1, 0, 0);
+    if (e) {
+      yyerror(l, parser, lua_tostring(parser->L, -1));
+      lua_pop(L, 1);
+      return LUA_NOREF;
+    }
+  }
+
   lua_settop(L, 0);
 
   return ret;
@@ -398,6 +401,7 @@ int yylex(YYSTYPE * s, YYLTYPE * l, parser_t * parser) {
 
 next_token:
   lua_settop(L, 0);
+  lua_checkstack(L, 20);
 
   lua_rawgeti(L, LUA_REGISTRYINDEX, parser->lexref);
   lua_rawgeti(L, LUA_REGISTRYINDEX, parser->ref);
@@ -406,6 +410,7 @@ next_token:
   if (e) {
     fprintf(stderr, "%s\n", lua_tostring(parser->L, -1));
     lua_pop(L, 1);
+    return LUA_NOREF;
   }
 
   lua_getfield(L, 1, "id");
@@ -461,60 +466,27 @@ int yyerror(YYLTYPE * l, parser_t * parser, const char * error) {
   luaL_Buffer b;
   lua_State * L = parser->L;
 
-  int top = lua_gettop(L);
-
-  lua_rawgeti(L, LUA_REGISTRYINDEX, parser->tokref);
-  if (lua_istable(L, top+1)) {
-    lua_getfield(L, top+1, "tag");
-    const char * tag = lua_tostring(L, -1);
-    if (!tag || strcmp(tag, "token")) {
-      lua_pop(L, 2);
-      lua_pushnil(L);
-    }
-  }
-  if (lua_isnil(L, top+1) || !lua_istable(L, top+1)) {
-    lua_pop(L, 1);
-    lua_rawgeti(L, LUA_REGISTRYINDEX, parser->ref);
-    lua_getfield(L, -1, "last");
-    lua_remove(L, -2);
-  }
+  lua_checkstack(L, 4);
 
   luaL_buffinit(parser->L, &b);
-  
-  luaL_addstring(&b, "<input>:");
 
-  if (!lua_isnil(L, top+1)) {
-    size_t line;
-    size_t ts;
-    size_t te;
+  luaL_addstring(&b, "<input>:"); // XXX
+
+  if (l) {
+    size_t ts = l->first_column;
+    size_t te = l->last_column;
     size_t ls;
     size_t le;
     size_t len;
-    int id;
-    const char * src;
+    const char * src = NULL;
 
-    lua_getfield(L, top+1, "id");
-    id = lua_tonumber(L, -1); lua_pop(L, 1);
-    //fprintf(stderr, "%d\n", id);
-
-    lua_getfield(L, top+1, "_line");
-    line = lua_tonumber(L, -1);
+    lua_pushinteger(L, l->first_line);
     luaL_addvalue(&b);
 
     luaL_addstring(&b, ":");
 
     luaL_addstring(&b, "error: ");
     luaL_addstring(&b, error);
-
-    luaL_addstring(&b, ":\n");
-
-    lua_getfield(L, top+1, "_ts");
-    ts = lua_tonumber(L, -1); lua_pop(L, 1);
-    lua_getfield(L, top+1, "_te");
-    te = lua_tonumber(L, -1); lua_pop(L, 1);
-
-
-    luaL_addstring(&b, "   ");
 
     lua_rawgeti(L, LUA_REGISTRYINDEX, parser->ref);
     lua_getfield(L, -1, "src");
@@ -523,7 +495,10 @@ int yyerror(YYLTYPE * l, parser_t * parser, const char * error) {
     src = lua_tolstring(L, -1, &len);
     lua_pop(L, 1);
 
-    if (src && te > ts && te > 0 && ts > 0) {
+    if (te >= ts && te > 0 && ts > 0) {
+      luaL_addstring(&b, ":\n");
+      luaL_addstring(&b, "   ");
+
       ts --; te --;
       for (ls = ts; ls > 0; ls--) {
         if (src[ls] == '\n') {
@@ -557,12 +532,9 @@ int yyerror(YYLTYPE * l, parser_t * parser, const char * error) {
           luaL_addchar(&b, ' ');
         }
         luaL_addstring(&b, "^");
-      } else {
-        lua_pop(L, 1);
       }
     }
 
-    lua_pop(L, 1);
   } else {
     lua_pop(L, 1);
     luaL_addstring(&b, "error: ");
@@ -587,7 +559,9 @@ static int l_parse2(lua_State *L) {
   parser_t * parser = lua_touserdata(L, 1);
   lua_settop(L, 0);
   yydebug = 0;
-  yyparse(parser);
+  if (yyparse(parser)) {
+    return luaL_error(L, "parser error");
+  }
   return 0;
 }
 
@@ -596,7 +570,7 @@ static int l_parse (lua_State *L) {
 
   luaL_checktype(L, 1, LUA_TTABLE);
 
-  lua_getfield(L, 1, "tag");
+  lua_getfield(L, 1, "@tag");
   const char * tag = lua_tostring(L, -1);
 
   if (strncmp(tag, "Parser", strlen(tag)))
@@ -669,11 +643,11 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
   local function strrule(rule)
     local str = ""
     for i,v in ipairs(rule.parts) do
-      if v.tag == "non_terminal" then
+      if v["@tag"] == "non_terminal" then
         str = str .. v.value .. " "
-      elseif v.tag == "token_definition" then
+      elseif v["@tag"] == "token_definition" then
         str = str .. v.token.value .. " "
-      elseif v.tag == "block" then
+      elseif v["@tag"] == "block" then
         str = str .. "{block} "
       end
     end
@@ -692,16 +666,17 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
   local function bridge(lparts, pname, j, k, ur)
     write("      $$ = yyluabridge(parser, &@$, \"%s_%d_%d\", %d, %d, \n", pname, j, k, ur, #lparts)
     for m, part in ipairs(lparts) do
-      if part.tag == "non_terminal" then
+      if part["@tag"] == "non_terminal" then
         write("        $%d, \"%s\",\n", m, part.value)
-      elseif part.tag == "token_definition" then
+      elseif part["@tag"] == "token_definition" then
         write("        $%d, \"%s\",\n", m, part.token.value)
-      elseif part.tag == "block" then
+      elseif part["@tag"] == "block" then
         write("        $%d, \"{block}\",\n", m)
       end
     end
     write("        NULL, NULL);\n")
     write("      if ($$ == LUA_NOREF) {\n")
+    write("        yyerror(&@$, parser, \"handler '%s_%d_%d' returned no reference, stopping!\");\n", pname, j, k)
     write("        YYERROR;\n")
     write("      }\n")
   end
@@ -715,14 +690,14 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
       write("  %s", j==1 and ":" or "|")
 
       for k, part in ipairs(rule.parts) do
-        if part.tag == "non_terminal" then
+        if part["@tag"] == "non_terminal" then
           write(" %s", part.value)
-        elseif part.tag == "token_definition" then
+        elseif part["@tag"] == "token_definition" then
           write(" %s", part.token.value)
-        elseif part.tag == "block" then
+        elseif part["@tag"] == "block" then
           write("\n    {\n")
 
-          bridge(lparts, production.red.value, j, k, k == #rule.parts and 1 or 0)
+          bridge(lparts, production.red.value, j, k, (k == #rule.parts) and 1 or 0)
 
           if k == #rule.parts then
             write("    }")
@@ -733,7 +708,7 @@ function gen_parser_def(name, productions, tokens, map, tokensmap)
 
         table.insert(lparts, part)
 
-        if k == #rule.parts and (part.tag ~= "block") then
+        if k == #rule.parts and (part["@tag"] ~= "block") then
           write("\n    {\n")
           bridge(lparts, production.red.value, j, k, 1)
           write("    }\n")
@@ -768,11 +743,11 @@ function gen_parser_imp(name, productions, tokens, map, tokensmap)
   local function strrule(parts)
     local str = ""
     for i,v in ipairs(parts) do
-      if v.tag == "non_terminal" then
+      if v["@tag"] == "non_terminal" then
         str = str .. v.value .. " "
-      elseif v.tag == "token_definition" then
+      elseif v["@tag"] == "token_definition" then
         str = str .. v.token.value .. " "
-      elseif v.tag == "block" then
+      elseif v["@tag"] == "block" then
         str = str .. "{block} "
       end
     end
@@ -816,7 +791,7 @@ local M = {}
       local lparts = {}
 
       for k, part in ipairs(rule.parts) do
-        if part.tag == "block" then
+        if part["@tag"] == "block" then
           write("M.%s_%d_%d = function(env, m, ...)\n", production.red.value, j, k)
           write("--   %s %s\n", j==1 and ":" or "|", strrule(lparts))
           if #lparts > 0 then
@@ -830,7 +805,7 @@ local M = {}
         table.insert(mparts, format("v%d", k))
         table.insert(lparts, part)
 
-        if k == #rule.parts and part.tag ~= "block" then
+        if k == #rule.parts and part["@tag"] ~= "block" then
           write("M.%s_%d_%d = function(env, m, ...)\n", production.red.value, j, k)
           write("  -- XXX default handler\n")
           io.stderr:write(format("warning: generating default handler for %s_%d_%d\n", production.red.value, j, k))
@@ -845,10 +820,13 @@ local M = {}
 
 end
 
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
-----------------------------------------------------
+-----------------------------------------------
+---@@-------@@@@@@--@@---@@--@@@@@@--@@@@@@----
+---@@-------@@-------@@-@@---@@------@@---@@---
+---@@-------@@@@@@----@@@----@@@@@@--@@@@@@----
+---@@-------@@-------@@-@@---@@------@@--@@----
+---@@@@@@@--@@@@@@--@@---@@--@@@@@@--@@---@@---
+-----------------------------------------------
 
 function gen_lexer(name, productions, tokens, map, tokensmap)
   local fd = open(format("%s.lua", name), "w")
@@ -867,35 +845,102 @@ local P, R, S, C, Cc, Ct, Cg, Cb, Cp, Carg, V =
 local nl = (Carg(1) * C(P"\n"^1)) / function(rt, nl) rt.line = rt.line + #nl end
 local ws = nl + S"\t\v\r "
 
+local remove = table.remove
+local format = string.format
+
+]]
+
+  local middle = [[
+local iden = ((R"AZ" + R"az" + S"_") *  (R"AZ" + R"az" + S"_" + R"09")^0)-(keywords*(-(R"AZ" + R"az" + S"_" + R"09")))
+
+local macrodef = P{
+  V"macrodef",
+  macrodef = 
+    P"@macro" * ws^0 * iden * ws^0 *
+      P"(" * ws^0 * (iden * (ws^0 * P"," * ws^0 * iden)^0)^-1 * ws^0 * P")" * ws^0 *
+      P"{" * ((P(1) - (S"{}")) + V"macrodef")^0 * P"}"
+}
 ]]
 
   local footer = [[
 
+local function tb_pop(tb)
+  local tok
+  if tb[0] then
+    tok = tb[0]
+    tb[0] = tok[0]
+  else
+    tok = {id = 0} -- EOF
+  end
+  return tok
+end
+
+local function tb_push(tb, tok)
+  if tb[1] then
+    tb[1][0] = tok -- append to tail
+  else
+    tb[0] = tok -- become head
+  end
+  tb[1] = tok -- become tail
+end
+
+
 local function lex(prsr)
   if prsr.running then
-    local tok = (lpeg.match(token, prsr.src, prsr.pos, prsr.rt))
-    if not tok then
-      prsr.running = false
 
-      if prsr.last then
-        if prsr.last._te < #prsr.src then
-          --error(format("garbage at and of file (%d, %d)", prsr.last._te, #prsr.src))
-        end
-      else
-        error(format("garbage at and of file..."))
-      end
+    local tb = prsr.tb
+    local mt = prsr.mt
 
-      return {id = 0} -- EOF
+    if not tb then 
+      tb = {}
+      prsr.tb = tb
     end
+    if not mt then
+      mt = {}
+      prsr.mt = mt
+    end
+
+    if not tb[0] and (prsr.pos < #prsr.src) then
+      while true do
+        local tok = (lpeg.match(token, prsr.src, prsr.pos, prsr.rt))
+
+        if tok then
+          prsr.pos = tok._te
+          prsr.last = tok
+
+          tb_push(tb, tok)
+
+          if tok.id == 100 then -- IDENTIFIER
+            local macro = mt[token.value]
+            if macro then
+              tok.macro = macro
+              tok.id = 5001 -- MACRO
+              break
+            end
+          end
+        else
+          -- not tok?
+          if prsr.pos < #prsr.src then
+            local line = lpeg.match( P"\n"^0 * C((P(1) - P"\n")^0 * ( P"\n" + (-P(1)) )), prsr.src, prsr.pos, prsr.rt)
+            error(format("garbage at line %d\n %s", prsr.pos, line))
+          end
+          break
+        end
+      end
+    end
+
+    local tok = tb_pop(tb)
 
     if tok.id == 100 then -- IDENTIFIER
-      if prsr.env.current:type_get_r(tok.value) then
+      if tok.value == "selftype" then
+        tok.id = 200 -- TYPE_NAME
+      elseif prsr.env.current:type_get_r(tok.value) then
         tok.id = 200 -- TYPE_NAME
       end
+    elseif tok.id == 0 then
+      prsr.running = false
     end
 
-    prsr.pos = tok._te
-    prsr.last = tok
     return tok
 
   else
@@ -951,7 +996,7 @@ stderr:write(format("\n"))
 
       write("P%q", token.rep)
 
-      write(" / function(tok) return {tag = 'token', id = %d, value = tok} end\n", token.id)
+      write(" / function(tok) return {['@tag'] = 'token', id = %d, value = tok} end\n", token.id)
 
       if token.kw then
         if kwfirst then
@@ -974,13 +1019,15 @@ stderr:write(format("\n"))
   end
   write("\n\n")
 
+  write("%s\n", middle)
+
   local funfirst = true
   for key, token in ipairs(tokens) do
     if token.rep == "block" then
       write("-- %s\n", token.token.value)
       write("local func_%d = ", key)
       loadstring(token.block)(write, token.id)
-      write(" / function(tok) return {tag = 'token', id = %d, value = tok} end\n", token.id)
+      write(" / function(tok) return {['@tag'] = 'token', id = %d, value = tok} end\n", token.id)
       if funfirst then
         write("local funcs = ")
         funfirst = false
@@ -995,7 +1042,7 @@ stderr:write(format("\n"))
 token = 
   (
     ((  
-      (ws^0 * (Carg(1) / (function(rt) return rt.line end)) * (Cp() * (funcs + keywords + ops) * Cp()) )
+      (ws^0 * (Carg(1) / (function(rt) return rt.line end)) * (Cp() * (funcs + keywords + ops) * (ws^0 + -P(1)) * Cp()) )
         / function(line, ts, tok, te, nl) tok._ts = ts; tok._te = te; tok._line = line return tok, {nl} end
     ))
   )

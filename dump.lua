@@ -42,9 +42,9 @@ function table_show(t, name, indent)
         saved[value] = name
         if isemptytable(value) then
           cart = cart .. " = {};\n"
-        elseif value.tag then
-          if value.tag == "token" then
-            cart = cart .. string.format(" = [1;32m%s<[1;31m%s[1;32m>[0;m%s\n", value.tag, value.value,
+        elseif value["@tag"] then
+          if value["@tag"] == "token" then
+            cart = cart .. string.format(" = [1;32m%s<[1;31m%s[1;32m>[0;m%s\n", value["@tag"], value.value,
               --table.concat({" (id:", value.id, ", line:", value._line,")"})
               ""
               )
@@ -52,12 +52,12 @@ function table_show(t, name, indent)
             cart = cart .. string.format(" = [1;34m%s[0;m\n", value:repr(indent))
           else
             if value.kind then
-              cart = cart .. string.format(" = [1;33m%s[0;m:[1;35m%s[0;m {\n", value.tag, value.kind)
+              cart = cart .. string.format(" = [1;33m%s[0;m:[1;35m%s[0;m {\n", value["@tag"], value.kind)
             else
-              cart = cart .. string.format(" = [1;33m%s[0;m {\n", value.tag)
+              cart = cart .. string.format(" = [1;33m%s[0;m {\n", value["@tag"])
             end
             for k, v in pairs(value) do
-              if k ~= "tag" and k ~= "kind" then
+              if k ~= "@tag" and k ~= "kind" then
                 if type(k) == "string" and string.byte(k, 1) == 95 then
                 else
                   k = basicSerialize(k)

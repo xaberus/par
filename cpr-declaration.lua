@@ -63,7 +63,7 @@ Declaration = Class("Declaration", {
 function(D, self)
   --idump(self)
   for k, v in ipairs(self) do
-    if v.tag then
+    if v["@tag"] then
       disown(v)
     end
   end

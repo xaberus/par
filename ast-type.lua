@@ -232,6 +232,8 @@ Type = Class("Type", {
           tab[#tab+1] = v:repr(indent)
         end
         ret = ret .. "[" .. self.rctype:repr(indent)  .. " : " .. concat(tab, ", ") .. "]"
+      elseif self.reg == "i" then
+        ret = ret .. "interface " .. self.id
       end
 
       if self.abs then
@@ -323,6 +325,8 @@ Type = Class("Type", {
     end
     if self.reg == "s" then
       return self.struct
+    elseif self.reg == "i" then
+      return env:iface_get_r(self.id)
     end
   end,
 
@@ -419,9 +423,13 @@ function(T, env, tree)
     end
     self.list = list
     self.complete = true
+  elseif tree.iface then
+    self.reg = "i"
+    self.id = tree.iface.value
+    self.cid = env:ns_get_iface(self.id)
   else
     for v, q in ipairs(tree.sqlist.qual) do
-      if q.tag == "token" then
+      if q["@tag"] == "token" then
         local v = q.value
         if v == "const" then
           tassert(q, not self.qual.volatile, "const vs. volatile")
@@ -445,7 +453,7 @@ function(T, env, tree)
     local fpnmap, fpnp, fpn = T.fpnmap, false, nil
 
     for k, s in ipairs(tree.sqlist.spec) do
-      if s.tag == "token" then
+      if s["@tag"] == "token" then
         local v = s.value
 
         tassert(s, type(intmap) ~= "string",
@@ -489,11 +497,18 @@ function(T, env, tree)
           else
             --dump(tree)
             self.reg = "r"
-            self.ref = tassert(s, env:type_get_r(v), "reference to undefined type '%s'", v)
+            local ref = tassert(s, env:type_get_r(v), "reference to undefined type '%s'", v)
             --dump(self.ref)
-            self.id = v
-            self.cid = env:ns_get_type(v)
-            self.complete = true
+            if v ~= "selftype" then
+              self.id = v
+              self.cid = env:ns_get_type(v)
+              self.complete = true
+              self.ref = ref
+            else
+              self.reg = "i"
+              self.id = ref.id
+              self.cid = ref.cid
+            end
             break
           end
         end

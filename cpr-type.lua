@@ -23,13 +23,22 @@ Type = Class("Type", {
       wt:add(self.fixed)
     end,
     ["r"] = function(self, wt, indent)
-      wt:add(self.cid or self.id)
+      local id = self.cid or self.id
+      if id ~= "selftype" then
+        wt:add(self.cid or self.id)
+      else
+        --idump(self.ref)
+        wt:add("struct ", self.ref.cid or self.ref.id)
+      end
     end,
     ["v"] = function(self, wt, indent)
       wt:add("void")
     end,
     ["b"] = function(self, wt, indent)
       wt:add("bool")
+    end,
+    ["i"] = function(self, wt, indent, parent)
+      wt:add("struct ", self.cid or self.id)
     end,
     ["c"] = function(self, wt, indent, parent)
       local mirt -- most inner return type
@@ -72,7 +81,7 @@ Type = Class("Type", {
       for i = 1, l do
         local fn = fns[i]
         wt:add("(")
-        if i == 1 and parent.tag == "Function" then
+        if i == 1 and parent["@tag"] == "Function" then
           for k, v in ipairs(parent.params) do
             if k > 1 then
               wt:add(", ")
@@ -163,7 +172,7 @@ Type = Class("Type", {
   end,
   cpr = function(self, wt, indent, parent)
     assert(parent, "no parent")
-    local fn = self.cprh[parent.tag]
+    local fn = self.cprh[parent["@tag"]]
     if not fn then
       --idump(parent)
       fn = self.cprh["*"]
@@ -229,6 +238,7 @@ Type.cprh["Function"] = function(self, wt, indent, parent)
     basetype(self, wt, indent, parent)
   end
 end
+Type.cprh["Method"] = Type.cprh["Function"]
 
 Type.cprh["Declaration"] = function(self, wt, indent, parent)
   if parent.tdef and self.reg == "c" then
