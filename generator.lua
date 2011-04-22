@@ -364,7 +364,14 @@ int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, un
   }
   int e = lua_pcall(L, 2 + argc, 1, 0); // env + args
   if (e) {
-    yyerror(l, parser, lua_tostring(parser->L, -1));
+    int err = lua_gettop(L);
+    if (lua_istable(L, err)) {
+      lua_rawgeti(L, err, 2);
+      yyerror(l, parser, lua_tostring(parser->L, -1));
+      lua_pop(L, 1);
+    } else {
+      yyerror(l, parser, lua_tostring(parser->L, -1));
+    }
     lua_pop(L, 1);
     return LUA_NOREF;
   }
@@ -376,18 +383,17 @@ int yyluabridge(parser_t * parser, YYLTYPE * l, const char * name, int unref, un
     }
   }
 
+  lua_rawgeti(L, LUA_REGISTRYINDEX, parser->ref);
+  lua_pushvalue(L, -2);
+  lua_setfield(L, -2, "tree");
+  lua_pop(L, 1);
+
   ret = luaL_ref(L, LUA_REGISTRYINDEX);
-  parser->astref = ret;
 
   if (yydebug > 1) {
     lua_getfield(L, LUA_GLOBALSINDEX, "dump");
     lua_rawgeti(L, LUA_REGISTRYINDEX, ret);
-    int e = lua_pcall(L, 1, 0, 0);
-    if (e) {
-      yyerror(l, parser, lua_tostring(parser->L, -1));
-      lua_pop(L, 1);
-      return LUA_NOREF;
-    }
+    lua_call(L, 1, 0);
   }
 
   lua_settop(L, 0);
@@ -486,7 +492,8 @@ int yyerror(YYLTYPE * l, parser_t * parser, const char * error) {
     luaL_addstring(&b, ":");
 
     luaL_addstring(&b, "error: ");
-    luaL_addstring(&b, error);
+    if (error)
+      luaL_addstring(&b, error);
 
     lua_rawgeti(L, LUA_REGISTRYINDEX, parser->ref);
     lua_getfield(L, -1, "src");
@@ -538,7 +545,8 @@ int yyerror(YYLTYPE * l, parser_t * parser, const char * error) {
   } else {
     lua_pop(L, 1);
     luaL_addstring(&b, "error: ");
-    luaL_addstring(&b, error);
+    if (error)
+      luaL_addstring(&b, error);
   }
 
   luaL_pushresult(&b);
@@ -560,7 +568,7 @@ static int l_parse2(lua_State *L) {
   lua_settop(L, 0);
   yydebug = 0;
   if (yyparse(parser)) {
-    return luaL_error(L, "parser error");
+    return luaL_error(L, "general parser error");
   }
   return 0;
 }
@@ -611,12 +619,8 @@ static int l_parse (lua_State *L) {
   lua_settop(L, 0);
 
   lua_rawgeti(L, LUA_REGISTRYINDEX, parser.ref);
-
-  lua_rawgeti(L, LUA_REGISTRYINDEX, parser.envref);
   lua_getfield(L, -1, "tree");
-  lua_remove(L, -2);
 
-  luaL_unref(L, LUA_REGISTRYINDEX, parser.astref);
   luaL_unref(L, LUA_REGISTRYINDEX, parser.ref);
   luaL_unref(L, LUA_REGISTRYINDEX, parser.lexref);
   luaL_unref(L, LUA_REGISTRYINDEX, parser.envref);
@@ -934,7 +938,7 @@ local function lex(prsr)
     if tok.id == 100 then -- IDENTIFIER
       if tok.value == "selftype" then
         tok.id = 200 -- TYPE_NAME
-      elseif prsr.env.current:type_get_r(tok.value) then
+      elseif prsr.env.tc:type_get_r(tok.value) then
         tok.id = 200 -- TYPE_NAME
       end
     elseif tok.id == 0 then

@@ -1,6 +1,48 @@
 #!/usr/bin/luajit
 
+--collectgarbage("stop")
+
 require "dump"
+
+function tassert(token, cond, message, ...)
+  if not cond then
+    error({token, message and string.format(message, ...) or "AST/nr"})
+  end
+  return cond
+end
+
+function idump(self, indent)
+  local idnt
+  if not indent then
+    print("[1;31m┏━━━━━╾───────────────[0;m")
+    print(string.format("%s [1;35m%s[0;m:", "[1;31m┃[0;m", self["@tag"]))
+    idnt = "[1;31m┠──[0;m"
+  else
+    idnt = indent
+  end
+  for k, v in pairs(self) do
+    local t = type(v)
+    if t == "string" then
+      print(string.format("%s %s = '[1;34m%s[0;m'", idnt, tostring(k), v))
+    elseif t == "table" then
+      if v["@tag"] then
+        print(string.format("%s %s = [1;33m%s[0;m", idnt, tostring(k), tostring(v["@tag"])))
+      elseif k == "loc" then
+        print(string.format("%s loc ...", idnt, tostring(k)))
+      else
+        print(string.format("%s %s:", idnt, tostring(k)))
+        idump(v, idnt .. "[1;31m──[0;m")
+      end
+    else
+      print(string.format("%s %s = '[1;32m%s[0;m'", idnt, k, tostring(v)))
+    end
+  end
+  if not indent then
+    print("[1;31m┗━━━━━╾───────────────[0;m")
+    io.stdout:flush()
+  end
+end
+
 
 local Class = require "class"
 local AST = require "handlers"
@@ -14,20 +56,56 @@ Parser = Class("Parser", {
   penv = assert(require "parser"),
   lex = assert(require "lexer"),
   parse = assert(require "libclex_parse"),
+  err_decode = function(p, err)
+    local res, tbk = unpack(err)
+    if type(res) == "table" then
+      --dump(res)
+      local tok, msg = unpack(res)
+      msg = msg or "<N/I>"
+      if tok and tok._ts then
+        --dump(tok, true)
+        local ls = tok._ts
+        local le = tok._te
+        while ls > 1 do
+          if p.src:byte(ls) == 10 then
+            break
+          end
+          ls = ls - 1
+        end
+        while le < #p.src do
+          if p.src:byte(le) == 10 then
+            break
+          end
+          le = le + 1
+        end
+        print(string.format("error:<infile>:%d: %s\n%s", tok._line, p.src:sub(ls+1, le-1), msg))
+      else
+        print("error: " .. msg)
+      end
+    else
+      print("error: " .. res)
+    end
+    if true or not res then
+      print(tbk)
+    end
+  end,
 },
 function(P, src)
-  local env = AST.Environment()
+  local tenv = AST.Environment()
+  
   local self = setmetatable({
     src = io.input(src):read("*a"),
     running = true,
     pos = 1,
     rt = {line = 1},
     env = {
-      global = env,
-      current = env,
+      tg = tenv,
+      tc = tenv,
     },
     parse = parse,
+    AST = AST,
   }, P)
+  self.env.parser = self
   return self
 end)
 
@@ -41,8 +119,16 @@ end
 local p, tree = Parser(arg[1] or "test.in"):parse()
 io.stderr:write("CLEX done\n")
 
-local ast
+--p.env.tg:edump()
+io.stdout:flush()
 
+local ast = tree
+
+--print(ast:repr(""))
+
+--print(ast:repr(""))
+
+--[[
 local stat, err = xpcall(
 function()
   ast = AST.Source(p.env.current, tree)
@@ -54,38 +140,12 @@ function(err)
 end)
 
 if not stat then
-  local res, tbk = unpack(err)
-  if type(res) == "table" then
-    --dump(res)
-    local tok, msg = unpack(res)
-    msg = msg or "<N/I>"
-    if tok and tok._ts then
-      --dump(tok, true)
-      local ls = tok._ts
-      local le = tok._te
-      while ls > 1 do
-        if p.src:byte(ls) == 10 then
-          break
-        end
-        ls = ls - 1
-      end
-      while le < #p.src do
-        if p.src:byte(le) == 10 then
-          break
-        end
-        le = le + 1
-      end
-      print(string.format("error:<infile>:%d: %s\n%s", tok._line, p.src:sub(ls+1, le-1), msg))
-    else
-      print("error: " .. msg)
-    end
-  else
-    print("error: " .. res)
-  end
-  if true or not res then
-    print(tbk)
-  end
+  p:err_decode(err)
 end
+
+--p.env.global:edump()
+--io.stdout:flush()
+]]
 
 local out = setmetatable({}, {
   __index = {

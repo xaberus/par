@@ -13,26 +13,29 @@ local M = {
   next = next,
   remove = table.remove,
   format = string.format,
+  tostring = tostring,
   -- not needed
   print = print,
   stderr = io.stderr,
+  unpack = unpack,
+  traceback = debug.traceback,
+  tassert = tassert,
+  idump = idump,
 }
-
-M.tassert = function(token, cond, message, ...)
-  if not cond then
-    error({token, message and string.format(message, ...) or "AST/nr"})
-  end
-  return cond
-end
 
 M.mktab = function(env, tree, tab, meta)
   if not tree._m then
     dump(tree)
+    print(debug.traceback())
   end
   if (not tree._m) or (not tree._m._ts) then
     dump(tree)
+    print(debug.traceback())
   end
-  assert(tree._m and tree._m._ts)
+  if not env then
+    print(debug.traceback())
+  end
+  assert(tree._m and tree._m._ts, "AST no location")
   env.loc[tab] = assert(tree._m, "AST no location")
   setmetatable(tab, meta)
   return tab

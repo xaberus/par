@@ -16,7 +16,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs")
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ftest-coverage")
 
-set(CMAKE_SHARED_LIBRARY_C_FLAGS "-Wl,--no-undefined")
+#set(CMAKE_SHARED_LIBRARY_C_FLAGS "-Wl,--no-undefined")
 
 
 add_custom_command(
@@ -42,4 +42,4 @@ add_library(clex_parse SHARED
   ${BISON_parser_OUTPUTS}
 )
 
-target_link_libraries(clex_parse m luajit-5.1)
+target_link_libraries(clex_parse m)

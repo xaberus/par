@@ -1,4 +1,4 @@
-Method = Class("Method", {
+--[[Method = Class("Method", {
   prototype = function(self, wt, indent)
     wt:add(indent)
 
@@ -50,34 +50,19 @@ function(M, self)
     disown(self.block)
   end
   return self
-end)
+end)]]
 
 Interface = Class("Interface", {
-  structify = function(self, wt, indent, id)
-    local indent2 = indent .. "  "
-    if id then
-      wt:add(indent, "struct ", id, " {\n")
-    else
-      wt:add(indent, "struct", " {\n")
-    end
-
-    if self.super then
-      self.super:structify(wt, indent2)
-    end
-
-    for k, v in ipairs(self) do
-      v:cpr(wt, indent2)
-    end
-
-    wt:add(indent, "};\n")
-  end,
   cpr = function(self, wt, indent)
     local indent2 = indent .. "  "
 
     wt:add(indent, "/* start interface ", self.cid or self.id, " */\n")
-    self:structify(wt, indent2, self.cid or self.id) -- emit full prototype
+    wt:add(indent2)
+    self.struct:cpr(wt, indent2)
+    wt:add(";\n")
+    --self:structify(wt, indent2, self.cid or self.id) -- emit full prototype
     for k, v in ipairs(self.methods) do
-      v:prototype(wt, indent2)
+      v:cpr(wt, indent2)
     end
     wt:add(indent, "/* end interface ", self.cid or self.id, " */\n")
   end,
@@ -91,6 +76,7 @@ function(I, self)
 
   disown(self.ctype)
   disown(self.env)
+  disown(self.struct)
 
   for k, v in ipairs(self.methods) do
     disown(v)

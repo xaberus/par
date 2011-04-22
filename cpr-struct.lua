@@ -69,6 +69,10 @@ Struct = Class("Struct", {
       if not self.anon then
         wt:add(self.cid or self.id)
         wt:add(" ")
+      elseif self.id then
+        wt:add("/* ")
+        wt:add(self.cid or self.id)
+        wt:add(" */ ")
       end
 
       wt:add("{\n")

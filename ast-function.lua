@@ -12,11 +12,12 @@ Parameter = Class("Parameter", {
 },
 function(P, env, tree)
   --dump(tree, nil, nil, nil, "param")
-  local ctype = Type(env, tree.ctype)
-  local v = tree.param.value
+  local ctype = tree.ctype
+  local v = tree.param
   local self = mktab(env, tree, {id = v, ctype = ctype}, P)
 
   env:sym_reg(v, self)
+  self.cid = tassert(nil, env:ns_get_sym(v), "AST/Parameter no c id")
 
   return self
 end)
@@ -43,7 +44,9 @@ Function = Class("Function", {
     tab[#tab+1] = self.id
 
     for k, v in ipairs(self.params) do
-      prt[#prt+1] = v:repr(indent)
+      if v.id ~= "self" and k == 1 then
+        prt[#prt+1] = v:repr(indent)
+      end
     end
 
     if self.vararg then
@@ -54,13 +57,22 @@ Function = Class("Function", {
 
 
     if self.block and #self.block then
-      tab[#tab+1] = "\n"
-      tab[#tab+1] = indent
-      tab[#tab+1] = self.block:repr(indent)
-      tab[#tab+1] = "\n"
-      return concat(tab, "")
+      if indent then
+        tab[#tab+1] = "\n"
+        tab[#tab+1] = indent
+        tab[#tab+1] = self.block:repr(indent)
+        tab[#tab+1] = "\n"
+        return concat(tab, "")
+      else
+        tab[#tab+1] = ";"
+        return concat(tab, "")
+      end
     elseif self.forward then
-      tab[#tab+1] = ";\n"
+      if indent then
+        tab[#tab+1] = ";\n"
+      else
+        tab[#tab+1] = ";"
+      end 
       return concat(tab, "")
     else
       dump(self, true)
@@ -77,9 +89,7 @@ Function = Class("Function", {
 function(F, env, tree)
   --dump(tree, nil, nil, nil, "funcdef")
 
-  local rctype = Type(env, tree.rctype)
-
-  local penv = env:child("param")
+  local rctype = tree.rctype
 
   local list = {}
   local ftype = setmetatable({
@@ -91,8 +101,11 @@ function(F, env, tree)
   }, Type) -- hacky?
 
   local params = {}
+  if tree.iself then
+    params[#params+1] = tree.iself
+  end
   for k, v in ipairs(tree.list) do
-    local param = Parameter(penv, v)
+    local param = v
     local ty = param:get_type()
     params[#params+1] = param
     list[#list+1] = ty:strip_dep()
@@ -133,11 +146,10 @@ function(F, env, tree)
 
   if tree.forward then
     self.forward = true
-    env:sym_reg(v, self)
-    self.cid = env:ns_get_sym(v)
+    env.parent:sym_reg(v, self) -- register to parent!
+    self.cid = tassert(nil, env:ns_get_sym(v), "AST/Function no c id")
   else
-    local benv = penv:child("block")
-    local ref = env:sym_get(v)
+    local ref = env.parent:sym_get(v)
     if ref then
       tassert(tree.funcdef, ref.forward, "attempt to redefine function '%s'", v)
       local err = tree_check_fn_proto(ref, self)
@@ -145,12 +157,11 @@ function(F, env, tree)
 
       ref.ref = self
     else
-      env:sym_reg(v, self)
+      --env.parent:edump()
+      env.parent:sym_reg(v, self) -- register to parent!
     end
     setmetatable(self, Function)
-    self.cid = env:ns_get_sym(v)
-    local block = Block(benv, tree.block)
-    self.block = block
+    self.cid = tassert(nil, env:ns_get_sym(v), "AST/Function no c id")
   end
 
   if tree.list.vararg then

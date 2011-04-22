@@ -12,16 +12,16 @@ Source = Class("Source", {
 function(S, env, tree)
   local self = mktab(env, tree, {}, S)
   for k, v in ipairs(tree) do
-    if v.funcdef then
-      self[#self+1] = Function(env, v)
-    elseif v.decl or v.tdef or v.enum or v.struct or v.union then
-      self[#self+1] = Declaration(env, v)
-    elseif v.ns then
-      self[#self+1] = Namespace(env, v)
-    elseif v.idecl then
-      self[#self+1] = Interface(env, v)
+    if v["@tag"] == "Function" then
+      self[#self+1] = v
+    elseif v["@tag"] == "Declaration" then
+      self[#self+1] = v
+    elseif v["@tag"] == "Namespace" then
+      self[#self+1] = v
+    elseif v["@tag"] == "Interface" then
+      self[#self+1] = v
     else
-      dump(v)
+      dump(v, true)
       tassert(tree._m, false, "AST/Source NIY")
     end
   end

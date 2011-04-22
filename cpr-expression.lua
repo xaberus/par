@@ -53,6 +53,10 @@ Expression = Class("Expression", {
       wt:add("--")
       a:cpr(wt, indent)
     end,
+    ["uinc"] = function(self, op, a, b, c, wt, indent)
+      wt:add("++")
+      a:cpr(wt, indent)
+    end,
     ["shl"] = function(self, op, a, b, c, wt, indent)
       a:cpr(wt, indent)
       wt:add(" << ")

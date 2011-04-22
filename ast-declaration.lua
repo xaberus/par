@@ -1,4 +1,7 @@
 Declarator = Class("Declarator", {
+  repr = function(self, indent)
+    return self.ctype:repr(indent) .. " " .. self.id
+  end,
   get_type = function(self)
     return self.ctype
   end,
@@ -6,7 +9,7 @@ Declarator = Class("Declarator", {
 function(D, env, ctype, tree)
   local self = mktab(env, tree, {}, D)
   if tree.init then
-    local init = Initializer(env, tree.init)
+    local init = tree.init
     self.init = init
   end
   local v = tree.iden.value
@@ -15,7 +18,7 @@ function(D, env, ctype, tree)
 
   env:sym_reg(v, self)
 
-  self.cid = env:ns_get_sym(v)
+  self.cid = tassert(nil, env:ns_get_sym(v), "AST/Declarator no c id")
 
   return self
 end)
@@ -34,12 +37,16 @@ Declaration = Class("Declaration", {
       if indent then
         return indent .. self.ctype:repr(indent) .. " " .. concat(tab, ", ") .. ";\n"
       else
-        return self.ctype:repr(indent) .. " "  .. concat(tab, ", ") .. ";"
+        return self.ctype:repr(indent) .. " "  .. concat(tab, ", ")
       end
     elseif self.struct then
       return indent .. self.struct:repr(indent) .. ";\n"
     elseif self.tdef then
-      return indent .. "typedef " .. self.ctype:repr(indent) .. " " .. self.id .. ";\n"
+      if indent then
+        return indent .. "typedef " .. self.ctype:repr(indent) .. " " .. self.id .. ";\n"
+      else
+        return "typedef " .. self.ctype:repr() .. " " .. self.id
+      end
     elseif self.enum then
       return indent .. self.enum:repr(indent) .. ";\n"
     end
@@ -51,36 +58,33 @@ function(D, env, tree)
   if tree.pure then
     local self = mktab(env, tree, {}, D)
     self.pure = true
-    local ctype = Type(env, tree.ctype)
+    local ctype = tree.ctype
     for k, v in ipairs(tree.decl) do
-      self[#self+1] = Declarator(env, ctype, v)
+      self[#self+1] = Declarator( env, ctype, v)
     end
     self.ctype = ctype
     return self
-  elseif tree.struct or tree.union then
-    local self = mktab(env, tree, {}, D)
-    local v = tree.iden.value
-    local s = Struct(env, tree, v)
-    self.struct = s
-    self.id = v
+  elseif tree["@tag"] == "Struct" then
+    local self = mktab(env, {_m = env.loc[tree]}, {}, D)
+    self.struct = tree
+    self.id = tree.id
     return self
   elseif tree.tdef then
     local v = tree.tdef.value
-    local self = mktab(env, tree, tassert(tree.tdef, env:type_get_r(v),
-      "could not find already defined type '%s'", v), D)
+    local self = mktab(env, tree, {}, D)
     self.tdef = true
     self.id = v
-    self.ctype = Type(env, tree.ctype)
-    self.cid = env:ns_get_type(v)
+    self.ctype = tree.ctype
+    env:type_reg(v, self)
+    self.cid = tassert(nil, env:ns_get_type(v), "AST/Declaration no c id")
     return self
-  elseif tree.enum then
-    local self = mktab(env, tree, {}, D)
-    local v = tree.enum.value
-    self.enum = Enum(env, tree)
+  elseif tree["@tag"] == "Enum" then
+    local self = mktab(env, {_m = env.loc[tree]}, {}, D)
+    self.enum = tree
     return self
   else
     dump(tree, true)
-    tassert(tree._m, false, "AST/Block not reached")
+    tassert(tree._m, false, "AST/Declaration not reached")
   end
 
 end)

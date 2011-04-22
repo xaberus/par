@@ -7,7 +7,6 @@ typedef struct parser {
   int ref;
   int lexref;
   int envref;
-  int astref;
 
   int tokref;
 } parser_t;

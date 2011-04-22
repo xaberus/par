@@ -179,7 +179,7 @@ Type = Class("Type", {
           if not s then
             quals.flexible = true
           else
-            local expr = tassert(env.loc[self], Expression(env, s))
+            local expr = tassert(env.loc[self], s, "AST/Type no expression")
 
             if expr:is_constant() or env.kind == "block" then
               quals.size = expr
@@ -326,7 +326,7 @@ Type = Class("Type", {
     if self.reg == "s" then
       return self.struct
     elseif self.reg == "i" then
-      return env:iface_get_r(self.id)
+      return tassert(nil, env:iface_get_r(self.id), "no interface '%s' in this scope", self.id).struct
     end
   end,
 
@@ -416,17 +416,18 @@ function(T, env, tree)
 
   if tree.functype then
     self.reg = "c"
-    self.rctype = T(env, tree.functype.ret)
+    self.rctype = tree.functype.ret
     local list = {}
     for k, v in ipairs(tree.functype.list) do
-      list[#list+1] = T(env, v)
+      list[#list+1] = v
     end
     self.list = list
     self.complete = true
   elseif tree.iface then
     self.reg = "i"
     self.id = tree.iface.value
-    self.cid = env:ns_get_iface(self.id)
+    self.cid = tassert(nil, env:ns_get_iface(self.id), "AST/Type no c id")
+    self.complete = true
   else
     for v, q in ipairs(tree.sqlist.qual) do
       if q["@tag"] == "token" then
@@ -501,32 +502,33 @@ function(T, env, tree)
             --dump(self.ref)
             if v ~= "selftype" then
               self.id = v
-              self.cid = env:ns_get_type(v)
+              self.cid = tassert(nil, env:ns_get_type(v), "AST/Type no c id")
               self.complete = true
               self.ref = ref
             else
               self.reg = "i"
               self.id = ref.id
-              self.cid = ref.cid
+              self.cid = tassert(nil, ref.cid, "AST/Type no c id")
+              self.complete = true
             end
             break
           end
         end
-      elseif s.struct or s.union then
+      elseif s["@tag"] == "Struct" then
         tassert(s, #tree.sqlist.spec == 1, "more than one type in type name")
-        local struct = Struct(env, s)
+        local struct = s
         self.reg = "s"
         self.struct = struct
         self.complete = true
         break
-      elseif s.enum then
+      elseif s["@tag"] == "Enum" then
         tassert(s, #tree.sqlist.spec == 1, "more than one type in type name")
-        local enum = Enum(env, s) -- create a new type here
+        local enum = s -- create a new type here
         self.reg = "e"
         self.enum = enum
         self.complete = true
       else
-        dump(tree, true)
+        dump(tree)
         tassert(nil, false, "AST/Type NIY")
       end
     end

@@ -1,56 +1,52 @@
 Statement = Class("Statement", {
   h = {
     ["if"] = function(env, tree, self)
-      self.expr = Expression(env, tree.ifcl)
-      self.dstmt = Statement(env, tree.dstmt);
+      self.expr = tree.ifcl
+      self.dstmt = tree.dstmt
       self.opened = tree.opened
       if tree.estmt then
         self.kind = "ifelse"
-        self.estmt = Statement(env, tree.estmt);
+        self.estmt = tree.estmt
       else
         self.kind = "if"
       end
     end,
     ["do"] = function(env, tree, self)
-      local env = env:child("loop")
       self.kind = "do"
-      self.expr = Expression(env, tree.docl)
-      self.dstmt = Statement(env, tree.dstmt)
+      self.expr = tree.docl
+      self.dstmt = tree.dstmt
     end,
     ["for"] = function(env, tree, self)
-      local env = env:child("loop")
       local m = tree.forcl
       self.kind = "for"
       if m == "ee" then
-        self.start = Expression(env, tree.init)
-        self.cond = Expression(env, tree.cond)
+        self.start = tree.init
+        self.cond = tree.cond
       elseif m == "eee" then
         if(tree.init) then
-          self.start = Expression(env, tree.init)
+          self.start = tree.init
         end
-        self.cond = Expression(env, tree.cond)
-        self.run = Expression(env, tree.incr)
+        self.cond = tree.cond
+        self.run = tree.incr
       elseif m == "de" then
-        self.decl = Declaration(env, tree.decl)
-        self.cond = Expression(env, tree.cond)
+        self.decl = tree.decl
+        self.cond = tree.cond
       elseif m == "dee" then
-        self.decl = Declaration(env, tree.decl)
-        self.cond = Expression(env, tree.cond)
-        self.run = Expression(env, tree.incr)
+        self.decl = tree.decl
+        self.cond = tree.cond
+        self.run = tree.incr
       end
-      self.dstmt = Statement(env, tree.dstmt)
+      self.dstmt = tree.dstmt
     end,
     ["while"] = function(env, tree, self)
-      local env = env:child("loop")
       self.kind = "while"
-      self.expr = Expression(env, tree.whilecl)
-      self.dstmt = Statement(env, tree.dstmt)
+      self.expr = tree.whilecl
+      self.dstmt = tree.dstmt
     end,
     ["switch"] = function(env, tree, self)
-      local env = env:child("switch")
       self.kind = "switch"
-      self.expr = Expression(env, tree.switchcl)
-      self.dstmt = Statement(env, tree.dstmt)
+      self.expr = tree.switchcl
+      self.dstmt = tree.dstmt
     end,
     ["default"] = function(env, tree, self)
       tassert(env.loc[self],
@@ -63,24 +59,23 @@ Statement = Class("Statement", {
         env.kind == "switch"
         or env.parent.kind == "switch")
       self.kind = "case"
-      self.expr = Expression(env, tree.case)
+      self.expr = tree.case
     end,
     ["expr"] = function(env, tree, self)
       self.kind = "expr"
-      self.expr = Expression(env, tree.expr)
+      self.expr = tree.expr
     end,
     ["@"] = function(env, tree, self)
       self.kind = "empty"
     end,
     ["{}"] = function(env, tree, self)
       self.kind = "block"
-      local env = env:child("block")
-      self.block = Block(env, tree.compound)
+      self.block = tree.compound
     end,
     ["return"] = function(env, tree, self)
       self.kind = "return"
       if type(tree.retstmt) == "table" then
-        self.expr = Expression(env, tree.retstmt)
+        self.expr = tree.retstmt
       end
     end,
     ["break"] = function(env, tree, self)
@@ -112,15 +107,15 @@ Statement = Class("Statement", {
     ["label"] = function(env, tree, self)
       local v = tree.label.value
       self.kind = "label"
-      self.ref = env:label_get_r(v)
+      --self.ref = env:label_get_r(v)
       self.id = v
     end,
     ["goto"] = function(env, tree, self)
       local v = tree.gotostmt.value
       self.kind = "goto"
       self.id = v
-      self.ref = tassert(tree.gotostmt, env:label_get_r(v), 
-        "no label %s in this scope", v)
+      --self.ref = tassert(tree.gotostmt, env:label_get_r(v), 
+        --"no label %s in this scope", v)
     end,
   },
   repr = function(self, indent)
@@ -252,7 +247,10 @@ Statement = Class("Statement", {
       tab[#tab+1] = ";\n"
     elseif kind == "label" then
       tab[#tab+1] = self.id
-      tab[#tab+1] = ":\n"
+      tab[#tab+1] = ":"
+      if indent then
+        tab[#tab+1] = "\n"
+      end
     elseif kind == "goto" then
       tab[#tab+1] = indent
       tab[#tab+1] = "goto"
@@ -288,6 +286,26 @@ Statement = Class("Statement", {
       tab[#tab+1] = ":\n"
     end
     return concat(tab, "")
+  end,
+  get_labels = function(self, labels)
+    local kind = self.kind
+    if kind == "label" then
+      labels[#labels+1] = self
+    elseif kind == "block" then
+      for k, v in ipairs(self.block.labels) do
+        labels[#labels+1] = v
+      end
+    end
+  end,
+  check_labels = function(self, env)
+    local kind = self.kind
+    if kind == "goto" then
+      if not self.ref then
+        ref = tassert(env.loc[self], env:label_get_r(self.id), "undefined label '%s'", self.id)
+      end
+    elseif kind == "block" then
+      self.block:check_labels()
+    end
   end,
 },
 function(S, env, tree)

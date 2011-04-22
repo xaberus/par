@@ -13,46 +13,42 @@ Block = Class("Block", {
     end
     return "{\n" .. concat(tab, "") .. indent .. "}"
   end,
+  check_labels = function(self)
+    local env = self.env
+    for k, lbl in ipairs(self.labels) do
+      if not lbl.ref then
+        env:label_reg(lbl.id, lbl)
+      end
+    end
+    for k, v in ipairs(self) do
+      local tag = v["@tag"]
+      if tag == "Statement" then
+        v:check_labels(env);
+      end
+    end
+  end,
 },
 function(B, env, tree)
   --dump(tree, nil, nil, nil, "block")
   local self = mktab(env, tree, {env = env}, B)
 
-  local function tree_get_labels(env, tree)
+  local function get_labels(tree)
+    local labels = {}
     for k, v in ipairs(tree) do
       if v.stmt then
-        local stmt = v.stmt
-        if stmt.label then
-          local v = stmt.label.value
-          local lbl = env:label_get_r(v)
-          if lbl then
-            --dump(lbl)
-            tassert(stmt.label, not env:label_get(v))
-            lbl.env = env
-          else
-            --dump(stmt)
-            lbl = {}
-            lbl.kind = "label"
-            lbl.id = v
-            lbl.env = env
-            env:label_reg(v, lbl)
-          end
-        elseif v.stmt.compound then
-          tree_get_labels(env, stmt.compound)
-        end
+        v.stmt:get_labels(labels);
       end
     end
+    return labels
   end
 
-  -- register labels in advance
-  tree_get_labels(env, tree)
-  --dump(env)
+  self.labels = get_labels(tree, labels)
 
   for k, v in ipairs(tree) do
     if v.decl then
-      self:add_decl(Declaration(env, v.decl))
+      self:add_decl(v.decl)
     elseif v.stmt then
-      self:add_stmt(Statement(env, v.stmt))
+      self:add_stmt(v.stmt)
     else
       dump(v, true)
       tassert(env.loc[self], false, "AST/Block not reached")

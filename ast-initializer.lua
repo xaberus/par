@@ -18,7 +18,7 @@ function(D, env, tree)
     if v.iden then
       self[#self+1] = mktab(env, v, {name = v.iden.value})
     elseif v.index then
-      self[#self+1] = mktab(env, v, {name = Expression(env, index)})
+      self[#self+1] = mktab(env, v, {name = index})
     end
   end
   return self
@@ -53,16 +53,17 @@ Initializer = Class("Initializer", {
 function(I, env, tree)
   --dump(tree, nil, nil, nil, "init")
   if tree.asgnexpr then
-    local expr = Expression(env, tree.asgnexpr)
+    local expr = tree.asgnexpr
     local self = mktab(env, tree, {expr = expr}, I)
     return self
   elseif tree.initlist then
     local list = {}
+    --dump(tree.initlist)
     for k, v in ipairs(tree.initlist) do
       local init = {}
-      init.expr = Expression(env, v.asgnexpr)
+      init.expr = tassert(tree._m, v, "AST/Initializer no expression")
       if v.desgn then
-        init.desgn = Designation(env, v.desgn)
+        init.desgn = v.desgn
       end
       list[#list+1] = init
     end
